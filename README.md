@@ -42,50 +42,82 @@ simulation file, or `--mc` on a real-data file).
 
 ## Output tables
 
-All tables are keyed by an integer `event_id` (== row index in the
-source `NtpSt` tree, called `entry` in `events.parquet`), so they can be
-joined across files.
+Two flat, denormalized tables — no nested/list columns, so any tool that
+reads Parquet can use them directly:
 
-| file                     | one row per...            | written for | key column(s)           |
-|--------------------------|----------------------------|-------------|--------------------------|
-| `events.parquet`         | event                      | mc + data   | `entry` (+ `run`/`subrun`/`snarl`/`event`) |
-| `hits.parquet`           | digitized strip hit        | mc + data   | `event_id`               |
-| `truth_event.parquet`    | event's MC interaction     | mc only     | `event_id`               |
-| `truth_particles.parquet`| MC final-state particle    | mc only     | `event_id`               |
+| file             | one row per...              | written for | 
+|------------------|------------------------------|-------------|
+| `data.parquet`   | digitized strip hit          | mc + data   |
+| `truth.parquet`  | MC final-state truth particle| mc only     |
 
-`hits.parquet` is intentionally a "long" (sparse/COO-style) table rather
+Both carry the event identifiers (`entry`, `run`, `subrun`, `snarl`,
+`event`) on every row — `entry` is the row index in the source `NtpSt`
+tree and is the key to group/filter by. `truth.parquet` additionally
+repeats the event's MC interaction truth (neutrino kinematics, vertex,
+interaction code, ...) on every one of that event's particle rows, so it's
+a single self-contained table rather than something you need to join.
+
+Both tables are a *left join*: an event with zero hits (or, for truth,
+zero truth particles) still gets exactly one row, with the item-level
+columns null. That means `data["entry"].nunique()` always equals the
+number of events in the source file — no event silently disappears just
+because it happened to have no hits.
+
+`data.parquet` is intentionally a "long" (sparse/COO-style) table rather
 than a dense per-plane image: strip occupancy is typically well under
 0.1% of the full plane×strip grid, so a dense tensor would be orders of
 magnitude larger on disk than the source file. Pivot into a dense or
 `scipy.sparse`/`torch.sparse` tensor per event at load time if that's
-the representation you need (e.g. for a CNN).
+the representation you need (e.g. for a CNN) — see the notebook example
+below.
+
+Note on naming: in `truth.parquet`, `bjorken_x`/`bjorken_y`/`bjorken_z`
+are the standard DIS kinematic variables, *not* a spatial position —
+the interaction vertex position is `vtxx`/`vtxy`/`vtxz`.
 
 ## Loading in pandas
 
 ```python
 import pandas as pd
 
-events = pd.read_parquet("output_dir/events.parquet")
-hits = pd.read_parquet("output_dir/hits.parquet")
+data = pd.read_parquet("output_dir/data.parquet")
 
 # hits for a single event
-event_hits = hits[hits["event_id"] == 0]
+event_hits = data[data["entry"] == 0]
 
-# join truth onto events (simulation only)
-truth_event = pd.read_parquet("output_dir/truth_event.parquet")
-truth_particles = pd.read_parquet("output_dir/truth_particles.parquet")
-
-events_with_truth = events.merge(
-    truth_event, left_on="entry", right_on="event_id"
-)
+# simulation only
+truth = pd.read_parquet("output_dir/truth.parquet")
+event_truth = truth[truth["entry"] == 0]
 
 # e.g. rebuild a dense (plane, strip) image for one event, per view
 import numpy as np
 
 ev = event_hits[event_hits["view"] == 2]  # U view
 image = np.zeros((486, 192), dtype=np.float32)
-image[ev["plane"], ev["strip"]] = ev["pe0"] + ev["pe1"]
+image[ev["plane"].astype(int), ev["strip"].astype(int)] = ev["pe0"] + ev["pe1"]
 ```
 
-Everything else (`hits`, `truth_particles`) works the same way: filter
-by `event_id`, or `groupby("event_id")` to iterate event-by-event.
+`groupby("entry")` iterates event-by-event over either table. Columns
+that hold small whole numbers (`plane`, `strip`, `view`, ...) read back
+as `float64` in plain pandas because they contain nulls (for zero-hit/
+zero-particle events) — pandas' default integer dtype can't hold nulls.
+Pass `dtype_backend="pyarrow"` to `read_parquet` if you want the exact
+nullable integer types instead.
+
+`inspect_parquet.ipynb` (generated locally, not checked into the repo —
+see below) has a runnable walkthrough of both tables, including the
+dense-image pivot above.
+
+## Inspecting the output
+
+A Jupyter notebook, `inspect_parquet.ipynb`, is a handy way to poke at the
+converted tables (row counts, hit-multiplicity histograms, a rendered
+event display, the truth energy spectrum, ...). Notebooks and `.parquet`
+files are gitignored — they're local scratch/derived artifacts, not
+tracked in the repo — so create it once for yourself and keep iterating
+on it locally. `uv sync` installs `jupyter`/`pandas`/`matplotlib` so it's
+ready to run:
+
+```bash
+uv run jupyter lab
+```
