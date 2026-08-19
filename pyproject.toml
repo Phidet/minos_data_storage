@@ -1,0 +1,11 @@
+[project]
+name = "minos-data-storage"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.10"
+dependencies = [
+    "awkward>=2.13.0",
+    "numpy>=2.2.6",
+    "pyarrow>=25.0.1",
+    "uproot>=5.7.5",
+]
