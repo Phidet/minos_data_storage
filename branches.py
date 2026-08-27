@@ -42,6 +42,25 @@ def load(manifest: Path | str = DEFAULT_MANIFEST) -> list[str]:
     return names
 
 
+def known(manifest: Path | str = DEFAULT_MANIFEST) -> set[str]:
+    """Every branch the manifest mentions, enabled or commented out.
+
+    Not the same as `load()`. A branch that is commented out is a decision
+    someone made and recorded; a branch that appears in neither list is one
+    the manifest has never seen, which is the case worth reporting when a
+    file turns up with a branch set we did not expect.
+    """
+    names = set()
+    for line in Path(manifest).read_text().splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("# "):
+            continue
+        name = stripped.lstrip("#").split("#", 1)[0].strip()
+        if name:
+            names.add(name)
+    return names
+
+
 def summarise(manifest: Path | str = DEFAULT_MANIFEST) -> dict[str, tuple[int, int]]:
     """Per branch group, how many leaves are enabled out of the total.
 

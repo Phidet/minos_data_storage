@@ -48,12 +48,14 @@ output name.
 | `-f, --format {hdf5,root}` | output format (default `hdf5`) |
 | `--pattern GLOB` | which files to pick up (default `**/*.root`) |
 | `--manifest FILE` | a manifest other than `branches.txt` |
-| `--compression C` | `gzip`/`lzf`/`none` for HDF5, `zlib`/`none` for ROOT (default `gzip`) |
 | `--max-events N` | keep only the first N events per file (testing) |
 | `--overwrite` | reconvert files whose output already exists |
-| `--dry-run` | list planned work and stop |
 | `--no-check` | skip the exclusion checks described below |
-| `--dump-branches` | print every branch in the input, as manifest lines |
+| `--check-events N` | events to sample for those checks (default 5000) |
+
+Compression is not an option: HDF5 output is gzip, ROOT output is zlib.
+Both are the codec their format guarantees every reader can decompress,
+which is the property that matters for an archive.
 
 ## What gets archived: `branches.txt`
 
@@ -71,9 +73,9 @@ NtpStRecord/stp/stp.planeview     # fixed by plane (2=U, 3=V)
 ```
 
 **Changing what the archive contains is an edit to that file, not a code
-change.** 166 of 755 branches are enabled by default. For a file with a
-different branch set, regenerate the list with
-`export.py --dump-branches FILE.root` and annotate it.
+change.** 166 of 755 branches are enabled by default. If a file turns up
+carrying a branch the manifest does not mention, `export.py` names it and
+carries on — add it here to archive it.
 
 `branches.py` parses it, and checks the count in the header comment against
 the number actually enabled, so the two cannot drift apart.
@@ -151,6 +153,12 @@ files carry those branches zero-filled, so they convert without complaint.
 If a branch is genuinely missing the file is reported as failed, naming the
 branch, rather than guessing.
 
+**A branch the manifest has never heard of is reported, not ignored.** The
+checks above run manifest-to-file; this is the other direction. A file whose
+branch set differs from what `branches.txt` describes would otherwise be
+quietly stripped of the difference, so those branches are named under the
+file's line and the conversion continues — it is news, not an error.
+
 ## Checks on excluded branches
 
 Some branches are dropped because of a *claim about their contents*: that
@@ -182,4 +190,3 @@ checked: there is no claim to test.
 | [`formats.py`](formats.py) | HDF5 and ROOT writers and readers |
 | [`export.py`](export.py) | the CLI |
 | [`check_exclusions.py`](check_exclusions.py) | verifies the assumptions behind dropped branches |
-| [`SCHEMA.md`](SCHEMA.md) | the derivations behind the redundancy claims |

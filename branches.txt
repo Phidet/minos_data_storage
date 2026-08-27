@@ -12,8 +12,9 @@
 #
 # 166 of 755 branches enabled by default.
 #
-# See README.md for what each branch means, and regenerate the full list
-# for a new file with:  python export.py --dump-branches FILE.root
+# See BRANCHES.md for what each branch means and why the excluded ones are
+# excluded. If a file turns up carrying a branch this list does not mention,
+# export.py names it and carries on -- add it here to archive it.
 
 # ────────────────────────────────────────────────────────────────────
 # header — run/subrun/snarl identifiers

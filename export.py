@@ -47,13 +47,30 @@ wanted = manifest.load({manifest_path!r})
 
 with uproot.open(src) as f:
     tree = f[{tree!r}]
-    present = set(tree.keys(recursive=True))
+    keys = tree.keys(recursive=True)
+    present = set(keys)
     missing = [b for b in wanted if b not in present]
     if missing:
         raise SystemExit(
             f"{{len(missing)}} branch(es) in the manifest are not in this file, "
             f"e.g. {{missing[:3]}}"
         )
+
+    # And the other direction: a branch this file has that the manifest has
+    # never heard of is archived nowhere and reported nowhere, which is how
+    # a file with a different branch set would be silently stripped. Only
+    # real leaves count -- parent nodes and ROOT's own bookkeeping are not
+    # data. Reported, not fatal: a new branch is news, not an error.
+    parents = {{k.rsplit("/", 1)[0] for k in keys if "/" in k}}
+    known = manifest.known({manifest_path!r})
+    unlisted = [
+        k for k in keys
+        if k not in known
+        and k.rsplit(".", 1)[-1] not in ("fBits", "fUniqueID")
+        and not k.endswith("TObject")
+        and k not in parents
+    ]
+
     stop = {max_events!r}
     columns = {{}}
     for name in wanted:
@@ -71,8 +88,12 @@ metadata = {{
     "tool": "minos_data_storage/export.py",
 }}
 
-formats.WRITERS[fmt](dst, columns, metadata, compression={compression!r})
-print("RESULT " + json.dumps({{"events": int(n_events), "branches": len(columns)}}))
+formats.WRITERS[fmt](dst, columns, metadata)
+print("RESULT " + json.dumps({{
+    "events": int(n_events),
+    "branches": len(columns),
+    "unlisted": unlisted,
+}}))
 '''
 
 
@@ -122,7 +143,6 @@ def convert(src: Path, dst: Path, args) -> dict:
         manifest_path=str(args.manifest),
         tree=TREE,
         max_events=args.max_events,
-        compression=args.compression,
         written=datetime.now(timezone.utc).isoformat(timespec="seconds"),
     )
     started = time.perf_counter()
@@ -145,21 +165,21 @@ def convert(src: Path, dst: Path, args) -> dict:
     return {"ok": True, "elapsed": elapsed, **payload}
 
 
-def dump_branches(path: Path) -> int:
-    """Print every real leaf, for regenerating the manifest on a new file."""
-    import uproot
+def report_unlisted(unlisted: list[str], show: int = 5) -> None:
+    """Say which branches this file has that the manifest never mentions.
 
-    with uproot.open(path) as f:
-        tree = f[TREE]
-        keys = tree.keys(recursive=True)
-        parents = {k.rsplit("/", 1)[0] for k in keys if "/" in k}
-        for k in keys:
-            if k.rsplit(".", 1)[-1] in ("fBits", "fUniqueID"):
-                continue
-            if k.endswith("TObject") or k in parents:
-                continue
-            print(k)
-    return 0
+    Not a failure. A file whose branch set differs from the manifest is
+    worth knowing about -- those branches went nowhere -- but it is a
+    reason to look at the manifest, not to refuse the conversion.
+    """
+    if not unlisted:
+        return
+    print(f"    note: {len(unlisted)} branch(es) in this file are not in the "
+          f"manifest and were not archived:")
+    for name in unlisted[:show]:
+        print(f"      {name}")
+    if len(unlisted) > show:
+        print(f"      ... and {len(unlisted) - show} more")
 
 
 def parse_args(argv=None):
@@ -171,24 +191,16 @@ def parse_args(argv=None):
     p.add_argument("-f", "--format", choices=("hdf5", "root"), default="hdf5")
     p.add_argument("--manifest", type=Path, default=manifest.DEFAULT_MANIFEST)
     p.add_argument("--pattern", default="**/*.root", help="default: %(default)s")
-    p.add_argument("--compression", default="gzip",
-                   help="gzip/lzf/none for HDF5, zlib/none for ROOT")
     p.add_argument("--max-events", type=int, default=None, help="cap per file, for testing")
     p.add_argument("--overwrite", action="store_true")
-    p.add_argument("--dry-run", action="store_true")
     p.add_argument("--no-check", action="store_true",
                    help="skip the checks on dropped branches")
     p.add_argument("--check-events", type=int, default=5000)
-    p.add_argument("--dump-branches", action="store_true",
-                   help="print every leaf in INPUT and exit")
     return p.parse_args(argv)
 
 
 def main(argv=None) -> int:
     args = parse_args(argv)
-
-    if args.dump_branches:
-        return dump_branches(args.input)
 
     if args.output is None:
         print("error: an output directory is required", file=sys.stderr)
@@ -210,7 +222,7 @@ def main(argv=None) -> int:
     groups = manifest.summarise(args.manifest)
     total = sum(t for _, t in groups.values())
     print(f"{len(sources)} file(s); {len(wanted)} of {total} branches enabled; "
-          f"format {args.format}, compression {args.compression}\n")
+          f"format {args.format}\n")
 
     converted, skipped, failures = [], [], []
     bytes_in = bytes_out = 0
@@ -239,10 +251,6 @@ def main(argv=None) -> int:
             skipped.append(src)
             continue
 
-        if args.dry_run:
-            print(f"{label}\n    would write {dst}")
-            continue
-
         print(label, flush=True)
 
         if not args.no_check:
@@ -268,12 +276,9 @@ def main(argv=None) -> int:
         bytes_in += a
         bytes_out += b
         print(f"    {result['events']:,} events, {result['branches']} branches")
+        report_unlisted(result.get("unlisted", []))
         print(f"    {human(a)} -> {human(b)} ({b / a:.1%}) in {result['elapsed']:.1f}s")
         converted.append(src)
-
-    if args.dry_run:
-        print(f"\nDry run: {len(sources) - len(skipped)} to convert.")
-        return 0
 
     print(f"\n{'-' * 60}")
     print(f"converted {len(converted)}, skipped {len(skipped)}, failed {len(failures)}")

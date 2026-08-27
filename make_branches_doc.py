@@ -613,10 +613,10 @@ archive's simulation content, together with `stdhep`.""", {
     "itg": "PDG code of the struck target: `2212`/`2112` nucleons, a large nucleus code for coherent events, `11` for inverse muon decay.",
     "iboson": "Should carry the exchange boson's PDG code (Z⁰ = 23, W⁺ = 24) but holds a constant sentinel in every file checked.",
     "iresonance": "Channel: `1001` QE, `1002` resonance, `1003` DIS, `1004` coherent pion, `1005` inverse muon decay.",
-    "iaction": "`0` = NC, `1` = CC.",
+    "iaction": "`0` = NC, `1` = CC. Derivable as \"a final-state charged lepton exists\", but only to 99.993% — not exactly — so it is kept.",
     "istruckq": "PDG id of the struck quark: `0` none (non-DIS), `1` d, `2` u.",
     "iflags": "Hadronisation model: `0` non-DIS, `1` old KNO, `2` modified KNO, `3` charm, `11`/`12`/`13` JETSET string/cluster/other.",
-    "ndigu": "Raw digits in the u view truth-matched to this interaction.",
+    "ndigu": "Raw digits in the u view truth-matched to this interaction. Kept because it is *not* recoverable: it matches the naive per-view hit count from `stp` in only ~3% of events.",
     "ndigv": "The same in the v view. A digit touching both views is counted in u only.",
     "tphu": "Summed pulse height over those u-view digits — **raw ADC, pedestal-subtracted**.",
     "tphv": "The same in the v view.",
@@ -624,22 +624,22 @@ archive's simulation content, together with `stdhep`.""", {
     "z": "Its atomic number, from the same code.",
     "sigma": "Cross section for this interaction. Units unconfirmed — passed through unchanged from NEUGEN. **???**",
     "sigmadiff": "Differential cross section. Same issue. **???**",
-    "x": "Bjorken x.",
-    "y": "Inelasticity y. The invariant form, not the lab-frame ratio, which ignores Fermi motion.",
-    "q2": "Four-momentum transfer squared [GeV²].",
-    "w2": "Hadronic invariant mass squared [GeV²].",
-    "emfrac": "Electromagnetic fraction of the hadronic shower energy. Evaluated before final-state interactions.",
+    "x": "Bjorken x. Derivable as `−q2 / (2 p_tgt·q)` for QE, resonance and DIS, but the nucleon-level relation breaks entirely for coherent events, where the target is the whole nucleus, and for inverse muon decay. Kept rather than made every reader re-derive it and get those channels wrong.",
+    "y": "Inelasticity y. The invariant form, not the lab-frame ratio, which ignores Fermi motion. Derivable in principle, but breaks for inverse muon decay, so it is kept.",
+    "q2": "Four-momentum transfer squared [GeV²]. Derivable as `(p4neu − p4lep)²`, except for coherent events and inverse muon decay; kept for the same reason as `x`.",
+    "w2": "Hadronic invariant mass squared [GeV²]. Derivable as `(p_tgt + q)²`, with the same coherent and inverse-muon-decay exceptions; kept.",
+    "emfrac": "Electromagnetic fraction of the hadronic shower energy, evaluated before final-state interactions. Kept because it is not recoverable: it differs from the naive fraction computed from the truth particles by 0.41 median absolute difference, against a mean value of 0.18.",
     "vtxx": "Interaction vertex x [m]. Duplicates `vtx[0]` on the `stdhep` neutrino row.",
     "vtxy": "Interaction vertex y [m]. Duplicates its `vtx[1]`.",
     "vtxz": "Interaction vertex z [m]. Duplicates its `vtx[2]`.",
     "p4neu[4]": "Neutrino 4-momentum. Duplicates `p4` on the `stdhep` neutrino row.",
     "p4neunoosc[4]": "Neutrino 4-momentum under the unoscillated hypothesis.",
     "p4tgt[4]": "Target 4-momentum. Duplicates `p4` on the `stdhep` struck-nucleon or nucleus row.",
-    "p4shw[4]": "Final-state hadronic system. Not the sum of the `stdhep` hadrons: it is evaluated before final-state interactions — the rescattering of products inside the struck nucleus — whereas `stdhep` records the particles that emerge after them.",
+    "p4shw[4]": "Final-state hadronic system. Not the sum of the `stdhep` hadrons: it is evaluated before final-state interactions — the rescattering of products inside the struck nucleus — whereas `stdhep` records the particles that emerge after them. Checked against both the hadron sum and `p4neu + p4tgt − p4lep`: 100% mismatch with each, so it carries information nothing else does.",
     "p4mu1[4]": "Primary muon 4-momentum. Duplicates a `stdhep` lepton row, but with the energy component's sign flipped for the matter lepton.",
     "p4mu2[4]": "Second muon, where the event has one. Duplicates another `stdhep` muon row.",
     "p4el1[4]": "Electron 4-momentum. Duplicates an `stdhep` electron row.",
-    "p4el2[4]": "Second electron. Duplicates another such row.",
+    "p4el2[4]": "Second electron. Duplicates another `stdhep` electron row. Rare — the test file has exactly one event with a non-zero value, and the rule is verified against it.",
     "p4tau[4]": "Tau 4-momentum. Duplicates an `stdhep` tau row, and never non-zero in any file checked — no ν_τ events.",
     # ---- flux, from the gnumi beam simulation ----
     "flux.index": "Position of the flux record in its array.",
@@ -724,7 +724,7 @@ null placeholder never tracked.""", {
     "child[2]": "Indices of its daughters.",
     "IstHEP": "HEPEVT status code: `0` initial state, `1` final state, `11` struck nucleon.",
     "IdHEP": "PDG code.",
-    "mass": "Rest mass [GeV].",
+    "mass": "Rest mass [GeV]. A pure function of `IdHEP` in the files checked (192 distinct codes, none with two masses), so nominally redundant — but recovering it needs an **external PDG mass table**, not just other columns of this file. An archive that cannot be read without a second reference is not self-contained, so it stays.",
     "p4[4]": "4-momentum: `(px, py, pz)` then energy, all GeV.",
     "vtx[4]": "Production 4-position: `(x, y, z)` in metres, then time in seconds.",
     "ndethit": "How many digits the particle deposited energy in.",
@@ -829,7 +829,13 @@ Two themes run through the exclusions, and are worth stating once:
 - **Redundancy is dropped only after it is checked.** Where a branch is
   excluded because it duplicates another, `check_exclusions.py` re-tests
   that claim on every file before conversion, and refuses the file if it
-  fails. The derivations are in [`SCHEMA.md`](SCHEMA.md).
+  fails. Several branches that *look* redundant are kept because that test
+  failed — the description says so where it applies.
+
+A secondary source, where the LOON code is silent on a field's meaning, is
+the 2003 MINOS internal glossary for the predecessor `NtpSR` tree, which
+uses the same field names:
+[web.archive.org](https://web.archive.org/web/20111018134109/http://www-numi.fnal.gov/offline_software/srt_public_context/WebDocs/ntpdict.html).
 
 This file is generated by `make_branches_doc.py` from the manifest, so the
 tick column cannot drift out of step with what the tool actually does.

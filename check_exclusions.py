@@ -5,8 +5,19 @@ The archive drops some branches because of a claim about their *contents* --
 that they are empty, or a constant sentinel, or an exact copy of something
 we do keep.
 
-Every such claim is declared in ASSUMPTIONS below. A claim that fails stops the file being
-converted. This does not test branches that are dropped as a policy choice (e.g. the old reconstruction branches).
+Every such claim is declared in ASSUMPTIONS below. A claim that fails stops
+the file being converted. This does not test branches that are dropped as a
+policy choice (e.g. the old reconstruction branches) -- there is no claim
+about their contents to test.
+
+Why this runs per file rather than being settled once: an earlier,
+hand-derived version of the `p4mu1`/`p4el1` rule was **wrong**. It was
+checked against a hand-picked sample, and that sample happened to consist of
+events where the simple rule and the real, subtler one agreed -- the actual
+rule involves a sign convention on the energy component of the matter
+lepton. A claim confirmed by a spot-check is not confirmed. These rules are
+therefore re-derived across every event of every file being converted, so
+that class of mistake is caught by the tool instead of by luck.
 
 python check_exclusions.py FILE.sntp.root [--check-events N]
 """
