@@ -23,17 +23,17 @@ not just taken as a label — it errors out on a mismatch.
 
 ## Output
 
-| file             | one row per...                 | written for |
-|------------------|---------------------------------|-------------|
-| `data.parquet`   | digitized strip hit             | mc + data   |
-| `truth.parquet`  | MC final-state truth particle, with its event's interaction truth attached | mc only |
+Writes `data.parquet` (mc + data) and, for `--mc`, `truth.parquet`. See
+[SCHEMA.md](SCHEMA.md) for the full column list.
 
-Both carry `entry`/`run`/`subrun`/`snarl`/`event` on every row. Events
-with zero hits (or zero truth particles) still get one row with those
-columns null, so `data["entry"].nunique()` always equals the event count.
+To optimize storage, several `mc.*` branches are dropped because they're
+exact duplicates of data already in the particle-level table (see
+SCHEMA.md for the full list and the exact reconstruction rule for each
+one). Before trusting that on a new file, check it:
 
-`bjorken_x/y/z` in `truth.parquet` are DIS kinematic variables, not a
-position — the vertex position is `vtxx`/`vtxy`/`vtxz`.
+```bash
+uv run validate_redundancy.py input.sntp.root
+```
 
 ## Loading in pandas
 

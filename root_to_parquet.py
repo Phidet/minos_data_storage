@@ -32,11 +32,20 @@ import uproot
 
 TREE_NAME = "NtpSt"
 
+# zstd beats the pyarrow default (snappy) on both size and speed here; a
+# high level trades slower writes for a smaller file, which is the right
+# tradeoff for write-once, read-occasionally long-term storage.
+PARQUET_COMPRESSION = "zstd"
+PARQUET_COMPRESSION_LEVEL = 15
+
+# fHeader.fEvent is dropped: it's always -1 in every file checked so far
+# (event-level indexing within a snarl is assigned by the reconstruction
+# chain we intentionally don't keep -- see SCHEMA.md history), so it never
+# carries any information at this data tier.
 HEADER_PREFIX = "NtpStRecord/RecRecordImp<RecCandHeader>/fHeader."
 RUN_BRANCH = HEADER_PREFIX + "RecPhysicsHeader/fHeader.RecDataHeader/fHeader.fRun"
 SUBRUN_BRANCH = HEADER_PREFIX + "RecPhysicsHeader/fHeader.RecDataHeader/fHeader.fSubRun"
 SNARL_BRANCH = HEADER_PREFIX + "RecPhysicsHeader/fHeader.fSnarl"
-EVENT_BRANCH = HEADER_PREFIX + "fEvent"
 
 HIT_PREFIX = "NtpStRecord/stp/stp."
 HIT_BRANCHES = {
@@ -50,45 +59,49 @@ HIT_BRANCHES = {
     "time1": HIT_PREFIX + "time1",
 }
 
-# Bjorken x/y/z kinematic variables, *not* a spatial position (see vtxx/y/z
-# below for the interaction vertex).
+# Column names below match the raw mc.* branch names 1:1 -- see SCHEMA.md
+# for what each one actually means. Notably x/y are the standard DIS
+# kinematic variables.
+#
+# Dropped, zero information (single constant value in every file checked
+# so far): mc.iboson (a non-physical sentinel).
+#
+# Dropped, exact duplicate of a particle-table row -- see SCHEMA.md for
+# the exact filter (which varies by interaction channel for itg-like
+# fields) and a documented sign quirk on p4mu1[3]/p4el1[3]'s energy
+# component: mc.a, mc.z, mc.vtxx/y/z (join on the particle table's
+# initial-state neutrino or nucleus row).
 MC_PREFIX = "NtpStRecord/mc/mc."
 MC_TRUTH_SCALAR_BRANCHES = {
     "inu": MC_PREFIX + "inu",
     "inunoosc": MC_PREFIX + "inunoosc",
     "itg": MC_PREFIX + "itg",
-    "a": MC_PREFIX + "a",
     "iaction": MC_PREFIX + "iaction",
-    "iboson": MC_PREFIX + "iboson",
     "iresonance": MC_PREFIX + "iresonance",
     "istruckq": MC_PREFIX + "istruckq",
     "iflags": MC_PREFIX + "iflags",
-    "bjorken_x": MC_PREFIX + "x",
-    "bjorken_y": MC_PREFIX + "y",
-    "bjorken_z": MC_PREFIX + "z",
+    "x": MC_PREFIX + "x",
+    "y": MC_PREFIX + "y",
     "q2": MC_PREFIX + "q2",
     "w2": MC_PREFIX + "w2",
     "sigma": MC_PREFIX + "sigma",
     "sigmadiff": MC_PREFIX + "sigmadiff",
     "emfrac": MC_PREFIX + "emfrac",
-    "vtxx": MC_PREFIX + "vtxx",
-    "vtxy": MC_PREFIX + "vtxy",
-    "vtxz": MC_PREFIX + "vtxz",
     "ndigu": MC_PREFIX + "ndigu",
     "ndigv": MC_PREFIX + "ndigv",
     "tphu": MC_PREFIX + "tphu",
     "tphv": MC_PREFIX + "tphv",
 }
+# mc.p4tau[4] is dropped for the SAME reason as p4neu/p4tgt/etc. below (it's
+# the primary-lepton 4-vector for a nu_tau CC event; if one ever shows up in
+# a file, its tau will still be in the particle table at pdg=+-15, status=1,
+# same as any other lepton) -- not because it's assumed to always be zero.
+# See SCHEMA.md for the exact status codes and a documented sign quirk on
+# p4mu1[3]/p4el1[3]'s energy component. p4neunoosc and p4shw are kept:
+# neither matches any particle-table row.
 MC_TRUTH_P4_BRANCHES = {
-    "p4neu": MC_PREFIX + "p4neu[4]",
     "p4neunoosc": MC_PREFIX + "p4neunoosc[4]",
-    "p4tgt": MC_PREFIX + "p4tgt[4]",
     "p4shw": MC_PREFIX + "p4shw[4]",
-    "p4mu1": MC_PREFIX + "p4mu1[4]",
-    "p4mu2": MC_PREFIX + "p4mu2[4]",
-    "p4el1": MC_PREFIX + "p4el1[4]",
-    "p4el2": MC_PREFIX + "p4el2[4]",
-    "p4tau": MC_PREFIX + "p4tau[4]",
 }
 
 PARTICLE_PREFIX = "NtpStRecord/stdhep/stdhep."
@@ -115,7 +128,6 @@ def read_event_ids(tree, n_events):
         "run": read_branch(tree, RUN_BRANCH).to_numpy(),
         "subrun": read_branch(tree, SUBRUN_BRANCH).to_numpy(),
         "snarl": read_branch(tree, SNARL_BRANCH).to_numpy(),
-        "event": read_branch(tree, EVENT_BRANCH).to_numpy(),
     }
 
 
@@ -137,6 +149,15 @@ def to_columns(name, array):
     if np_array.ndim == 1:
         return {name: np_array}
     return {f"{name}{i}": np_array[:, i] for i in range(np_array.shape[1])}
+
+
+def write_parquet(table, path):
+    pq.write_table(
+        table,
+        path,
+        compression=PARQUET_COMPRESSION,
+        compression_level=PARQUET_COMPRESSION_LEVEL,
+    )
 
 
 def build_child_table(tree, branches, meta_columns):
@@ -207,8 +228,15 @@ def convert(input_path, output_dir, expect_mc):
         output_dir.mkdir(parents=True, exist_ok=True)
 
         data_columns = build_child_table(tree, HIT_BRANCHES, event_ids)
+        # time0/time1 arrive as float64 (ROOT Double_t) but only need
+        # microsecond-scale precision; float32 changes the value by
+        # <1e-13, far below any physical significance, and roughly halves
+        # their storage. strip never exceeds 191, so it fits in uint8.
+        data_columns["time0"] = data_columns["time0"].astype(np.float32)
+        data_columns["time1"] = data_columns["time1"].astype(np.float32)
+        data_columns["strip"] = data_columns["strip"].astype(np.uint8)
         data_table = pa.Table.from_pydict(data_columns)
-        pq.write_table(data_table, output_dir / "data.parquet")
+        write_parquet(data_table, output_dir / "data.parquet")
         print(f"  wrote data.parquet ({data_table.num_rows} rows)")
 
         if expect_mc:
@@ -216,7 +244,7 @@ def convert(input_path, output_dir, expect_mc):
             truth_meta = {**event_ids, **truth_event_columns}
             truth_columns = build_child_table(tree, PARTICLE_BRANCHES, truth_meta)
             truth_table = pa.Table.from_pydict(truth_columns)
-            pq.write_table(truth_table, output_dir / "truth.parquet")
+            write_parquet(truth_table, output_dir / "truth.parquet")
             print(f"  wrote truth.parquet ({truth_table.num_rows} rows)")
 
 
