@@ -1,0 +1,35 @@
+# BRANCHES.md is generated from branches.txt. Its tick column is only worth
+# anything if it agrees with the manifest, so regenerate it here and fail if
+# the committed copy differs.
+#
+# The generator imports nothing outside the standard library, so this needs
+# no dependency install -- it runs in seconds.
+name: branch doc
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  in-step-with-manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Regenerate BRANCHES.md
+        run: python make_branches_doc.py
+
+      - name: Fail if it differs from what was committed
+        run: |
+          if ! git diff --quiet BRANCHES.md; then
+            echo "::error file=BRANCHES.md::BRANCHES.md is out of step with branches.txt."
+            echo "Run 'python make_branches_doc.py' and commit the result."
+            git diff --stat BRANCHES.md
+            git diff BRANCHES.md | head -60
+            exit 1
+          fi
+          echo "BRANCHES.md is in step with branches.txt."

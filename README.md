@@ -82,7 +82,14 @@ the number actually enabled, so the two cannot drift apart.
 as the file groups them, each with its meaning and a ✓/✗ saying whether it
 is archived. It is generated from the manifest by `make_branches_doc.py`, so
 the ticks cannot drift out of step — regenerate it after editing
-`branches.txt`.
+`branches.txt`:
+
+```bash
+python make_branches_doc.py
+```
+
+CI regenerates it too and fails if the committed copy differs, so a manifest
+edit without the matching doc is caught on push.
 
 ## Output formats
 
