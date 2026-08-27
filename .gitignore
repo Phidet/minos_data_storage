@@ -9,3 +9,10 @@ __pycache__/
 *.ipynb
 *.parquet
 .ipynb_checkpoints/
+
+# Conversion output and scratch
+*.h5
+_out/
+_full/
+_batch/
+_cmp/

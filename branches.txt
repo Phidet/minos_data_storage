@@ -1,0 +1,909 @@
+# MINOS SNTP branch manifest
+#
+# One line per branch in the NtpSt tree. A line that is not commented out
+# is exported; a leading '#' excludes it, and the note after it says why.
+# Editing this file is how you change what the archive contains -- no code
+# change is needed.
+#
+# Default policy: keep what the detector and the simulation recorded, drop
+# what MINOS's reconstruction produced from it. MINOS has finished and no
+# new simulations are coming, so anything dropped here is gone for good;
+# prefer keeping when unsure.
+#
+# 166 of 755 branches enabled by default.
+#
+# See README.md for what each branch means, and regenerate the full list
+# for a new file with:  python export.py --dump-branches FILE.root
+
+# ────────────────────────────────────────────────────────────────────
+# header — run/subrun/snarl identifiers
+# Only the four identifiers below are kept; the rest is ROOT and job bookkeeping.
+# ────────────────────────────────────────────────────────────────────
+#NtpStRecord/RecRecordImp<RecCandHeader>/RecRecord/TNamed/TObject/fUniqueID
+#NtpStRecord/RecRecordImp<RecCandHeader>/RecRecord/TNamed/TObject/fBits
+#NtpStRecord/RecRecordImp<RecCandHeader>/RecRecord/TNamed/fName
+#NtpStRecord/RecRecordImp<RecCandHeader>/RecRecord/TNamed/fTitle
+#NtpStRecord/RecRecordImp<RecCandHeader>/fHeader.RecPhysicsHeader/fHeader.RecDataHeader/fHeader.RecHeader/fHeader.fVldContext.fDetector
+#NtpStRecord/RecRecordImp<RecCandHeader>/fHeader.RecPhysicsHeader/fHeader.RecDataHeader/fHeader.RecHeader/fHeader.fVldContext.fSimFlag
+#NtpStRecord/RecRecordImp<RecCandHeader>/fHeader.RecPhysicsHeader/fHeader.RecDataHeader/fHeader.RecHeader/fHeader.fVldContext.fTimeStamp.fSec
+#NtpStRecord/RecRecordImp<RecCandHeader>/fHeader.RecPhysicsHeader/fHeader.RecDataHeader/fHeader.RecHeader/fHeader.fVldContext.fTimeStamp.fNanoSec
+NtpStRecord/RecRecordImp<RecCandHeader>/fHeader.RecPhysicsHeader/fHeader.RecDataHeader/fHeader.fRun    # DAQ run number
+NtpStRecord/RecRecordImp<RecCandHeader>/fHeader.RecPhysicsHeader/fHeader.RecDataHeader/fHeader.fSubRun    # DAQ subrun number
+#NtpStRecord/RecRecordImp<RecCandHeader>/fHeader.RecPhysicsHeader/fHeader.RecDataHeader/fHeader.fRunType
+#NtpStRecord/RecRecordImp<RecCandHeader>/fHeader.RecPhysicsHeader/fHeader.RecDataHeader/fHeader.fErrorCode
+NtpStRecord/RecRecordImp<RecCandHeader>/fHeader.RecPhysicsHeader/fHeader.fSnarl    # snarl (readout window) number
+#NtpStRecord/RecRecordImp<RecCandHeader>/fHeader.RecPhysicsHeader/fHeader.fTrigSrc
+#NtpStRecord/RecRecordImp<RecCandHeader>/fHeader.RecPhysicsHeader/fHeader.fTimeFrame
+#NtpStRecord/RecRecordImp<RecCandHeader>/fHeader.RecPhysicsHeader/fHeader.fRemoteSpillType
+NtpStRecord/RecRecordImp<RecCandHeader>/fHeader.fEvent    # event within the snarl; constant -1 in files checked
+#NtpStRecord/RecRecordImp<RecCandHeader>/fIsClearable
+#NtpStRecord/RecRecordImp<RecCandHeader>/fJobHistory.fJobRecordMap
+
+# ────────────────────────────────────────────────────────────────────
+# evthdr — per-snarl summary counts
+# Counts of reconstructed objects.
+# ────────────────────────────────────────────────────────────────────
+#NtpStRecord/evthdr/evthdr.ndigit
+#NtpStRecord/evthdr/evthdr.nstrip
+#NtpStRecord/evthdr/evthdr.nslice
+#NtpStRecord/evthdr/evthdr.ncluster
+#NtpStRecord/evthdr/evthdr.ntrack
+#NtpStRecord/evthdr/evthdr.nshower
+#NtpStRecord/evthdr/evthdr.nevent
+#NtpStRecord/evthdr/evthdr.trigtime
+#NtpStRecord/evthdr/evthdr.litime
+#NtpStRecord/evthdr/evthdr.ph.raw
+#NtpStRecord/evthdr/evthdr.ph.siglin
+#NtpStRecord/evthdr/evthdr.ph.sigcor
+#NtpStRecord/evthdr/evthdr.ph.pe
+#NtpStRecord/evthdr/evthdr.planeall.n
+#NtpStRecord/evthdr/evthdr.planeall.nu
+#NtpStRecord/evthdr/evthdr.planeall.nv
+#NtpStRecord/evthdr/evthdr.planeall.beg
+#NtpStRecord/evthdr/evthdr.planeall.begu
+#NtpStRecord/evthdr/evthdr.planeall.begv
+#NtpStRecord/evthdr/evthdr.planeall.end
+#NtpStRecord/evthdr/evthdr.planeall.endu
+#NtpStRecord/evthdr/evthdr.planeall.endv
+#NtpStRecord/evthdr/evthdr.plane.n
+#NtpStRecord/evthdr/evthdr.plane.nu
+#NtpStRecord/evthdr/evthdr.plane.nv
+#NtpStRecord/evthdr/evthdr.plane.beg
+#NtpStRecord/evthdr/evthdr.plane.begu
+#NtpStRecord/evthdr/evthdr.plane.begv
+#NtpStRecord/evthdr/evthdr.plane.end
+#NtpStRecord/evthdr/evthdr.plane.endu
+#NtpStRecord/evthdr/evthdr.plane.endv
+#NtpStRecord/evthdr/evthdr.date.year
+#NtpStRecord/evthdr/evthdr.date.month
+#NtpStRecord/evthdr/evthdr.date.day
+#NtpStRecord/evthdr/evthdr.date.hour
+#NtpStRecord/evthdr/evthdr.date.minute
+#NtpStRecord/evthdr/evthdr.date.sec
+#NtpStRecord/evthdr/evthdr.date.utc
+
+# ────────────────────────────────────────────────────────────────────
+# vetohdr — veto shield summary
+# Summary of the raw shield hits, which are kept above.
+# ────────────────────────────────────────────────────────────────────
+#NtpStRecord/vetohdr/vetohdr.ndigit[3]
+#NtpStRecord/vetohdr/vetohdr.nplank[3]
+#NtpStRecord/vetohdr/vetohdr.adc[3]
+#NtpStRecord/vetohdr/vetohdr.dx[3]
+#NtpStRecord/vetohdr/vetohdr.dxvetostp[3]
+#NtpStRecord/vetohdr/vetohdr.dcos
+#NtpStRecord/vetohdr/vetohdr.projx
+#NtpStRecord/vetohdr/vetohdr.projy
+#NtpStRecord/vetohdr/vetohdr.projz
+#NtpStRecord/vetohdr/vetohdr.exphits
+#NtpStRecord/vetohdr/vetohdr.ishit
+#NtpStRecord/vetohdr/vetohdr.found2sect
+
+# ────────────────────────────────────────────────────────────────────
+# crhdr — cosmic-ray direction
+# Zenith, azimuth and sky coordinates derived from reconstructed tracks.
+# ────────────────────────────────────────────────────────────────────
+#NtpStRecord/crhdr/crhdr.zenith
+#NtpStRecord/crhdr/crhdr.azimuth
+#NtpStRecord/crhdr/crhdr.ra
+#NtpStRecord/crhdr/crhdr.rahourangle
+#NtpStRecord/crhdr/crhdr.dec
+#NtpStRecord/crhdr/crhdr.juliandate
+#NtpStRecord/crhdr/crhdr.locsiderialtime
+
+# ────────────────────────────────────────────────────────────────────
+# dmxstatus — demultiplexing quality
+# Demultiplexing is a reconstruction step.
+# ────────────────────────────────────────────────────────────────────
+#NtpStRecord/dmxstatus/dmxstatus.ismultimuon
+#NtpStRecord/dmxstatus/dmxstatus.nonphysicalfail
+#NtpStRecord/dmxstatus/dmxstatus.validplanesfail
+#NtpStRecord/dmxstatus/dmxstatus.vertexplanefail
+#NtpStRecord/dmxstatus/dmxstatus.ustrayplanes
+#NtpStRecord/dmxstatus/dmxstatus.vstrayplanes
+#NtpStRecord/dmxstatus/dmxstatus.uvalidplanes
+#NtpStRecord/dmxstatus/dmxstatus.vvalidplanes
+#NtpStRecord/dmxstatus/dmxstatus.avgtimeoffset
+
+# ────────────────────────────────────────────────────────────────────
+# detstatus — magnet and HV state
+# ────────────────────────────────────────────────────────────────────
+NtpStRecord/detstatus/detstatus.coilstatus
+NtpStRecord/detstatus/detstatus.dcscoilstatus
+NtpStRecord/detstatus/detstatus.coilcurrent1
+NtpStRecord/detstatus/detstatus.coilcurrent2
+NtpStRecord/detstatus/detstatus.dbuhvstatus
+NtpStRecord/detstatus/detstatus.coldchips1
+NtpStRecord/detstatus/detstatus.coldchips2
+
+# ────────────────────────────────────────────────────────────────────
+# timestatus — absolute timing
+# ────────────────────────────────────────────────────────────────────
+NtpStRecord/timestatus/timestatus.sgate_10mhz
+NtpStRecord/timestatus/timestatus.sgate_53mhz
+NtpStRecord/timestatus/timestatus.rollover_53mhz
+NtpStRecord/timestatus/timestatus.rollover_last_53mhz
+NtpStRecord/timestatus/timestatus.crate_t0_ns
+NtpStRecord/timestatus/timestatus.timeframe
+
+# ────────────────────────────────────────────────────────────────────
+# calstatus — calibration constants
+# ────────────────────────────────────────────────────────────────────
+NtpStRecord/calstatus/calstatus.gevpermip
+
+# ────────────────────────────────────────────────────────────────────
+# dataquality — beam spill, trigger, DAQ state
+# ────────────────────────────────────────────────────────────────────
+NtpStRecord/dataquality/dataquality.trigsource
+NtpStRecord/dataquality/dataquality.trigtime
+NtpStRecord/dataquality/dataquality.errorcode
+NtpStRecord/dataquality/dataquality.cratemask
+NtpStRecord/dataquality/dataquality.pretrigdigits
+NtpStRecord/dataquality/dataquality.posttrigdigits
+NtpStRecord/dataquality/dataquality.snarlmultiplicity
+NtpStRecord/dataquality/dataquality.spillstatus
+NtpStRecord/dataquality/dataquality.spilltype
+NtpStRecord/dataquality/dataquality.spilltimeerror
+NtpStRecord/dataquality/dataquality.litrigger
+NtpStRecord/dataquality/dataquality.litime
+NtpStRecord/dataquality/dataquality.lisubtractedtime
+NtpStRecord/dataquality/dataquality.lirelativetime
+NtpStRecord/dataquality/dataquality.licalibpoint
+NtpStRecord/dataquality/dataquality.licalibtype
+NtpStRecord/dataquality/dataquality.libox
+NtpStRecord/dataquality/dataquality.liled
+NtpStRecord/dataquality/dataquality.lipulseheight
+NtpStRecord/dataquality/dataquality.lipulsewidth
+NtpStRecord/dataquality/dataquality.coldchips
+NtpStRecord/dataquality/dataquality.hotchips
+NtpStRecord/dataquality/dataquality.busychips
+NtpStRecord/dataquality/dataquality.readouterrors
+NtpStRecord/dataquality/dataquality.dataqualityword
+
+# ────────────────────────────────────────────────────────────────────
+# mchdr — generator provenance
+# Codename, host and timestamp of the generator job.
+# ────────────────────────────────────────────────────────────────────
+#NtpStRecord/mchdr/mchdr.error
+#NtpStRecord/mchdr/mchdr.nmc
+#NtpStRecord/mchdr/mchdr.nstdhep
+#NtpStRecord/mchdr/mchdr.ndigihit
+#NtpStRecord/mchdr/mchdr.geninfo.time.fSec
+#NtpStRecord/mchdr/mchdr.geninfo.time.fNanoSec
+#NtpStRecord/mchdr/mchdr.geninfo.codename
+#NtpStRecord/mchdr/mchdr.geninfo.hostname
+
+# ────────────────────────────────────────────────────────────────────
+# photon — optical simulation counters
+# As detsim. The resulting light is already in stp.ph*.
+# ────────────────────────────────────────────────────────────────────
+#NtpStRecord/photon/photon.hitsDiscardedGeom
+#NtpStRecord/photon/photon.hitsDiscardedBad
+#NtpStRecord/photon/photon.totalHits
+#NtpStRecord/photon/photon.totalStripsHit
+#NtpStRecord/photon/photon.bluePhotons
+#NtpStRecord/photon/photon.greenPhotons
+#NtpStRecord/photon/photon.bluePhotons_nonprescaled
+#NtpStRecord/photon/photon.greenPhotons_nonprescaled
+#NtpStRecord/photon/photon.totalPE
+#NtpStRecord/photon/photon.totalPixels
+#NtpStRecord/photon/photon.totalHitEnergy
+#NtpStRecord/photon/photon.energyDiscardedGeom
+#NtpStRecord/photon/photon.energyDiscardedBad
+
+# ────────────────────────────────────────────────────────────────────
+# detsim — electronics simulation counters
+# Records how the simulation ran, not what happened.
+# ────────────────────────────────────────────────────────────────────
+#NtpStRecord/detsim/detsim.timeShift
+#NtpStRecord/detsim/detsim.nPE
+#NtpStRecord/detsim/detsim.hitPixels
+#NtpStRecord/detsim/detsim.hitPixelsWithXtalk
+#NtpStRecord/detsim/detsim.digitsAfterFETrigger
+#NtpStRecord/detsim/detsim.digitsAfterSpars
+#NtpStRecord/detsim/detsim.digitsAfterDaqTrigger
+#NtpStRecord/detsim/detsim.totalPE
+#NtpStRecord/detsim/detsim.totalCharge
+#NtpStRecord/detsim/detsim.adcsAfterFETrigger
+#NtpStRecord/detsim/detsim.adcsAfterSpars
+#NtpStRecord/detsim/detsim.adcsAfterDaqTrigger
+#NtpStRecord/detsim/detsim.bigSnarl
+#NtpStRecord/detsim/detsim.snarls
+#NtpStRecord/detsim/detsim.snarlDigits
+#NtpStRecord/detsim/detsim.snarlTrigger
+#NtpStRecord/detsim/detsim.snarlAdcs
+
+# ────────────────────────────────────────────────────────────────────
+# vetostp — raw veto shield hits
+# ────────────────────────────────────────────────────────────────────
+#NtpStRecord/vetostp/vetostp.index    # array position
+NtpStRecord/vetostp/vetostp.ndigit
+NtpStRecord/vetostp/vetostp.pln
+NtpStRecord/vetostp/vetostp.plank
+NtpStRecord/vetostp/vetostp.x
+NtpStRecord/vetostp/vetostp.y
+NtpStRecord/vetostp/vetostp.z[2]
+NtpStRecord/vetostp/vetostp.adc[2]
+NtpStRecord/vetostp/vetostp.pmtindex[2]
+NtpStRecord/vetostp/vetostp.pmtpixel[2]
+NtpStRecord/vetostp/vetostp.wlspigtail[2]
+NtpStRecord/vetostp/vetostp.clearlen[2]
+NtpStRecord/vetostp/vetostp.time[2]
+NtpStRecord/vetostp/vetostp.timeraw[2]
+
+# ────────────────────────────────────────────────────────────────────
+# vetoexp — expected shield crossings
+# Projection of a reconstructed track, not a measurement.
+# ────────────────────────────────────────────────────────────────────
+#NtpStRecord/vetoexp/vetoexp.plane
+#NtpStRecord/vetoexp/vetoexp.plank
+#NtpStRecord/vetoexp/vetoexp.stripinplank[2]
+#NtpStRecord/vetoexp/vetoexp.projx
+#NtpStRecord/vetoexp/vetoexp.projy
+#NtpStRecord/vetoexp/vetoexp.projz
+#NtpStRecord/vetoexp/vetoexp.centerdis
+#NtpStRecord/vetoexp/vetoexp.isfound
+#NtpStRecord/vetoexp/vetoexp.stripdigit
+#NtpStRecord/vetoexp/vetoexp.index
+
+# ────────────────────────────────────────────────────────────────────
+# deadchips — dead electronics map
+# Would be worth keeping for efficiency work, but empty in every file checked.
+# ────────────────────────────────────────────────────────────────────
+#NtpStRecord/deadchips/deadchips.channelid
+#NtpStRecord/deadchips/deadchips.plane0
+#NtpStRecord/deadchips/deadchips.plane1
+#NtpStRecord/deadchips/deadchips.shield
+#NtpStRecord/deadchips/deadchips.errorcode
+#NtpStRecord/deadchips/deadchips.status
+
+# ────────────────────────────────────────────────────────────────────
+# stp — digitised strip hits
+# ────────────────────────────────────────────────────────────────────
+#NtpStRecord/stp/stp.index    # array position, carried by row order
+NtpStRecord/stp/stp.planeview    # 2 = U, 3 = V; fixed by plane, kept for convenience
+#NtpStRecord/stp/stp.ndigit    # 1 or 2: how many ends fired; same as the time0/time1 sentinel
+#NtpStRecord/stp/stp.demuxveto    # demultiplexing flag; Near Detector only, constant 0 here
+NtpStRecord/stp/stp.strip
+NtpStRecord/stp/stp.plane
+#NtpStRecord/stp/stp.tpos    # transverse position, fixed by plane + strip
+#NtpStRecord/stp/stp.z    # fixed by stp.plane -- one z per plane
+#NtpStRecord/stp/stp.pmtindex0    # electronics channel address, east end
+#NtpStRecord/stp/stp.pmtindex1    # electronics channel address, west end
+NtpStRecord/stp/stp.time0
+NtpStRecord/stp/stp.time1
+NtpStRecord/stp/stp.ph0.raw    # raw ADC -- what the electronics recorded
+#NtpStRecord/stp/stp.ph0.siglin    # intermediate stage; raw and pe are both kept
+NtpStRecord/stp/stp.ph0.sigcor
+NtpStRecord/stp/stp.ph0.pe
+NtpStRecord/stp/stp.ph1.raw    # raw ADC -- what the electronics recorded
+#NtpStRecord/stp/stp.ph1.siglin    # intermediate stage; raw and pe are both kept
+NtpStRecord/stp/stp.ph1.sigcor
+NtpStRecord/stp/stp.ph1.pe
+
+# ────────────────────────────────────────────────────────────────────
+# slc — reconstructed slices
+# Reconstruction output.
+# ────────────────────────────────────────────────────────────────────
+#NtpStRecord/slc/slc.index
+#NtpStRecord/slc/slc.ndigit
+#NtpStRecord/slc/slc.nstpcnt
+#NtpStRecord/slc/slc.nstrip
+#NtpStRecord/slc/slc.stp
+#NtpStRecord/slc/slc.ph.raw
+#NtpStRecord/slc/slc.ph.siglin
+#NtpStRecord/slc/slc.ph.sigcor
+#NtpStRecord/slc/slc.ph.pe
+#NtpStRecord/slc/slc.plane.n
+#NtpStRecord/slc/slc.plane.nu
+#NtpStRecord/slc/slc.plane.nv
+#NtpStRecord/slc/slc.plane.beg
+#NtpStRecord/slc/slc.plane.begu
+#NtpStRecord/slc/slc.plane.begv
+#NtpStRecord/slc/slc.plane.end
+#NtpStRecord/slc/slc.plane.endu
+#NtpStRecord/slc/slc.plane.endv
+
+# ────────────────────────────────────────────────────────────────────
+# clu — clusters
+# Reconstruction output, upstream of track and shower fitting.
+# ────────────────────────────────────────────────────────────────────
+#NtpStRecord/clu/clu.index
+#NtpStRecord/clu/clu.planeview
+#NtpStRecord/clu/clu.nplane
+#NtpStRecord/clu/clu.begplane
+#NtpStRecord/clu/clu.endplane
+#NtpStRecord/clu/clu.id
+#NtpStRecord/clu/clu.slc
+#NtpStRecord/clu/clu.ndigit
+#NtpStRecord/clu/clu.nstpcnt
+#NtpStRecord/clu/clu.nstrip
+#NtpStRecord/clu/clu.stp
+#NtpStRecord/clu/clu.probem
+#NtpStRecord/clu/clu.zvtx
+#NtpStRecord/clu/clu.tposvtx
+#NtpStRecord/clu/clu.slope
+#NtpStRecord/clu/clu.avgdev
+#NtpStRecord/clu/clu.ph.raw
+#NtpStRecord/clu/clu.ph.siglin
+#NtpStRecord/clu/clu.ph.sigcor
+#NtpStRecord/clu/clu.ph.pe
+#NtpStRecord/clu/clu.ph.sigmap
+#NtpStRecord/clu/clu.ph.mip
+#NtpStRecord/clu/clu.ph.gev
+
+# ────────────────────────────────────────────────────────────────────
+# shw — reconstructed showers
+# Reconstruction output.
+# ────────────────────────────────────────────────────────────────────
+#NtpStRecord/shw/shw.index
+#NtpStRecord/shw/shw.slc
+#NtpStRecord/shw/shw.ndigit
+#NtpStRecord/shw/shw.nstpcnt
+#NtpStRecord/shw/shw.nstrip
+#NtpStRecord/shw/shw.stp
+#NtpStRecord/shw/shw.stpu
+#NtpStRecord/shw/shw.stpv
+#NtpStRecord/shw/shw.stpx
+#NtpStRecord/shw/shw.stpy
+#NtpStRecord/shw/shw.stpz
+#NtpStRecord/shw/shw.stpph0sigmap
+#NtpStRecord/shw/shw.stpph0mip
+#NtpStRecord/shw/shw.stpph0gev
+#NtpStRecord/shw/shw.stpph1sigmap
+#NtpStRecord/shw/shw.stpph1mip
+#NtpStRecord/shw/shw.stpph1gev
+#NtpStRecord/shw/shw.stpattn0c0
+#NtpStRecord/shw/shw.stpattn1c0
+#NtpStRecord/shw/shw.stpt0
+#NtpStRecord/shw/shw.stpt1
+#NtpStRecord/shw/shw.stptcal0t0
+#NtpStRecord/shw/shw.stptcal1t0
+#NtpStRecord/shw/shw.nUcluster
+#NtpStRecord/shw/shw.nVcluster
+#NtpStRecord/shw/shw.ncluster
+#NtpStRecord/shw/shw.clu
+#NtpStRecord/shw/shw.contained
+#NtpStRecord/shw/shw.ph.raw
+#NtpStRecord/shw/shw.ph.siglin
+#NtpStRecord/shw/shw.ph.sigcor
+#NtpStRecord/shw/shw.ph.pe
+#NtpStRecord/shw/shw.ph.sigmap
+#NtpStRecord/shw/shw.ph.mip
+#NtpStRecord/shw/shw.ph.gev
+#NtpStRecord/shw/shw.shwph.linCCgev
+#NtpStRecord/shw/shw.shwph.wtCCgev
+#NtpStRecord/shw/shw.shwph.linNCgev
+#NtpStRecord/shw/shw.shwph.wtNCgev
+#NtpStRecord/shw/shw.shwph.EMgev
+#NtpStRecord/shw/shw.plane.n
+#NtpStRecord/shw/shw.plane.nu
+#NtpStRecord/shw/shw.plane.nv
+#NtpStRecord/shw/shw.plane.beg
+#NtpStRecord/shw/shw.plane.begu
+#NtpStRecord/shw/shw.plane.begv
+#NtpStRecord/shw/shw.plane.end
+#NtpStRecord/shw/shw.plane.endu
+#NtpStRecord/shw/shw.plane.endv
+#NtpStRecord/shw/shw.vtx.plane
+#NtpStRecord/shw/shw.vtx.u
+#NtpStRecord/shw/shw.vtx.v
+#NtpStRecord/shw/shw.vtx.x
+#NtpStRecord/shw/shw.vtx.y
+#NtpStRecord/shw/shw.vtx.z
+#NtpStRecord/shw/shw.vtx.t
+#NtpStRecord/shw/shw.vtx.dcosu
+#NtpStRecord/shw/shw.vtx.dcosv
+#NtpStRecord/shw/shw.vtx.dcosx
+#NtpStRecord/shw/shw.vtx.dcosy
+#NtpStRecord/shw/shw.vtx.dcosz
+#NtpStRecord/shw/shw.vtx.eu
+#NtpStRecord/shw/shw.vtx.ev
+#NtpStRecord/shw/shw.vtx.ex
+#NtpStRecord/shw/shw.vtx.ey
+#NtpStRecord/shw/shw.vtx.edcosu
+#NtpStRecord/shw/shw.vtx.edcosv
+#NtpStRecord/shw/shw.vtx.edcosx
+#NtpStRecord/shw/shw.vtx.edcosy
+#NtpStRecord/shw/shw.vtx.edcosz
+#NtpStRecord/shw/shw.sss.nTrkLikeU
+#NtpStRecord/shw/shw.sss.nTrkLikeV
+#NtpStRecord/shw/shw.sss.nRecoTrkU
+#NtpStRecord/shw/shw.sss.nRecoTrkV
+#NtpStRecord/shw/shw.sss.phTrkLikeU
+#NtpStRecord/shw/shw.sss.phTrkLikeV
+#NtpStRecord/shw/shw.sss.probEMU
+#NtpStRecord/shw/shw.sss.probEMV
+#NtpStRecord/shw/shw.sss.compactU
+#NtpStRecord/shw/shw.sss.compactV
+
+# ────────────────────────────────────────────────────────────────────
+# trk — reconstructed tracks
+# Reconstruction output.
+# ────────────────────────────────────────────────────────────────────
+#NtpStRecord/trk/trk.index
+#NtpStRecord/trk/trk.slc
+#NtpStRecord/trk/trk.ndigit
+#NtpStRecord/trk/trk.nstpcnt
+#NtpStRecord/trk/trk.nstrip
+#NtpStRecord/trk/trk.stp
+#NtpStRecord/trk/trk.stpfit
+#NtpStRecord/trk/trk.stpu
+#NtpStRecord/trk/trk.stpv
+#NtpStRecord/trk/trk.stpx
+#NtpStRecord/trk/trk.stpy
+#NtpStRecord/trk/trk.stpz
+#NtpStRecord/trk/trk.stpds
+#NtpStRecord/trk/trk.stpfitchi2
+#NtpStRecord/trk/trk.stpfitprechi2
+#NtpStRecord/trk/trk.stpfitqp
+#NtpStRecord/trk/trk.stpph0sigmap
+#NtpStRecord/trk/trk.stpph0mip
+#NtpStRecord/trk/trk.stpph0gev
+#NtpStRecord/trk/trk.stpph1sigmap
+#NtpStRecord/trk/trk.stpph1mip
+#NtpStRecord/trk/trk.stpph1gev
+#NtpStRecord/trk/trk.stpattn0c0
+#NtpStRecord/trk/trk.stpattn1c0
+#NtpStRecord/trk/trk.stpt0
+#NtpStRecord/trk/trk.stpt1
+#NtpStRecord/trk/trk.stptcal0t0
+#NtpStRecord/trk/trk.stptcal1t0
+#NtpStRecord/trk/trk.ds
+#NtpStRecord/trk/trk.range
+#NtpStRecord/trk/trk.cputime
+#NtpStRecord/trk/trk.contained
+#NtpStRecord/trk/trk.ph.raw
+#NtpStRecord/trk/trk.ph.siglin
+#NtpStRecord/trk/trk.ph.sigcor
+#NtpStRecord/trk/trk.ph.pe
+#NtpStRecord/trk/trk.ph.sigmap
+#NtpStRecord/trk/trk.ph.mip
+#NtpStRecord/trk/trk.ph.gev
+#NtpStRecord/trk/trk.plane.n
+#NtpStRecord/trk/trk.plane.nu
+#NtpStRecord/trk/trk.plane.nv
+#NtpStRecord/trk/trk.plane.beg
+#NtpStRecord/trk/trk.plane.begu
+#NtpStRecord/trk/trk.plane.begv
+#NtpStRecord/trk/trk.plane.end
+#NtpStRecord/trk/trk.plane.endu
+#NtpStRecord/trk/trk.plane.endv
+#NtpStRecord/trk/trk.plane.ntrklike
+#NtpStRecord/trk/trk.vtx.plane
+#NtpStRecord/trk/trk.vtx.u
+#NtpStRecord/trk/trk.vtx.v
+#NtpStRecord/trk/trk.vtx.x
+#NtpStRecord/trk/trk.vtx.y
+#NtpStRecord/trk/trk.vtx.z
+#NtpStRecord/trk/trk.vtx.t
+#NtpStRecord/trk/trk.vtx.dcosu
+#NtpStRecord/trk/trk.vtx.dcosv
+#NtpStRecord/trk/trk.vtx.dcosx
+#NtpStRecord/trk/trk.vtx.dcosy
+#NtpStRecord/trk/trk.vtx.dcosz
+#NtpStRecord/trk/trk.vtx.eu
+#NtpStRecord/trk/trk.vtx.ev
+#NtpStRecord/trk/trk.vtx.ex
+#NtpStRecord/trk/trk.vtx.ey
+#NtpStRecord/trk/trk.vtx.edcosu
+#NtpStRecord/trk/trk.vtx.edcosv
+#NtpStRecord/trk/trk.vtx.edcosx
+#NtpStRecord/trk/trk.vtx.edcosy
+#NtpStRecord/trk/trk.vtx.edcosz
+#NtpStRecord/trk/trk.end.plane
+#NtpStRecord/trk/trk.end.u
+#NtpStRecord/trk/trk.end.v
+#NtpStRecord/trk/trk.end.x
+#NtpStRecord/trk/trk.end.y
+#NtpStRecord/trk/trk.end.z
+#NtpStRecord/trk/trk.end.t
+#NtpStRecord/trk/trk.end.dcosu
+#NtpStRecord/trk/trk.end.dcosv
+#NtpStRecord/trk/trk.end.dcosx
+#NtpStRecord/trk/trk.end.dcosy
+#NtpStRecord/trk/trk.end.dcosz
+#NtpStRecord/trk/trk.end.eu
+#NtpStRecord/trk/trk.end.ev
+#NtpStRecord/trk/trk.end.ex
+#NtpStRecord/trk/trk.end.ey
+#NtpStRecord/trk/trk.end.edcosu
+#NtpStRecord/trk/trk.end.edcosv
+#NtpStRecord/trk/trk.end.edcosx
+#NtpStRecord/trk/trk.end.edcosy
+#NtpStRecord/trk/trk.end.edcosz
+#NtpStRecord/trk/trk.lin.plane
+#NtpStRecord/trk/trk.lin.u
+#NtpStRecord/trk/trk.lin.v
+#NtpStRecord/trk/trk.lin.x
+#NtpStRecord/trk/trk.lin.y
+#NtpStRecord/trk/trk.lin.z
+#NtpStRecord/trk/trk.lin.t
+#NtpStRecord/trk/trk.lin.dcosu
+#NtpStRecord/trk/trk.lin.dcosv
+#NtpStRecord/trk/trk.lin.dcosx
+#NtpStRecord/trk/trk.lin.dcosy
+#NtpStRecord/trk/trk.lin.dcosz
+#NtpStRecord/trk/trk.lin.eu
+#NtpStRecord/trk/trk.lin.ev
+#NtpStRecord/trk/trk.lin.ex
+#NtpStRecord/trk/trk.lin.ey
+#NtpStRecord/trk/trk.lin.edcosu
+#NtpStRecord/trk/trk.lin.edcosv
+#NtpStRecord/trk/trk.lin.edcosx
+#NtpStRecord/trk/trk.lin.edcosy
+#NtpStRecord/trk/trk.lin.edcosz
+#NtpStRecord/trk/trk.fidvtx.dr
+#NtpStRecord/trk/trk.fidvtx.dz
+#NtpStRecord/trk/trk.fidvtx.trace
+#NtpStRecord/trk/trk.fidvtx.tracez
+#NtpStRecord/trk/trk.fidvtx.nplane
+#NtpStRecord/trk/trk.fidend.dr
+#NtpStRecord/trk/trk.fidend.dz
+#NtpStRecord/trk/trk.fidend.trace
+#NtpStRecord/trk/trk.fidend.tracez
+#NtpStRecord/trk/trk.fidend.nplane
+#NtpStRecord/trk/trk.fidall.dr
+#NtpStRecord/trk/trk.fidall.dz
+#NtpStRecord/trk/trk.fidall.trace
+#NtpStRecord/trk/trk.fidall.tracez
+#NtpStRecord/trk/trk.fidall.nplane
+#NtpStRecord/trk/trk.time.ndigit
+#NtpStRecord/trk/trk.time.chi2
+#NtpStRecord/trk/trk.time.u0
+#NtpStRecord/trk/trk.time.u1
+#NtpStRecord/trk/trk.time.v0
+#NtpStRecord/trk/trk.time.v1
+#NtpStRecord/trk/trk.time.cdtds
+#NtpStRecord/trk/trk.time.du
+#NtpStRecord/trk/trk.time.dv
+#NtpStRecord/trk/trk.time.dtds
+#NtpStRecord/trk/trk.time.t0
+#NtpStRecord/trk/trk.time.forwardRMS
+#NtpStRecord/trk/trk.time.forwardNDOF
+#NtpStRecord/trk/trk.time.backwardRMS
+#NtpStRecord/trk/trk.time.backwardNDOF
+#NtpStRecord/trk/trk.momentum.range
+#NtpStRecord/trk/trk.momentum.qp
+#NtpStRecord/trk/trk.momentum.eqp
+#NtpStRecord/trk/trk.momentum.best
+#NtpStRecord/trk/trk.momentum.qp_rangebiased
+#NtpStRecord/trk/trk.momentum.eqp_rangebiased
+#NtpStRecord/trk/trk.fit.pass
+#NtpStRecord/trk/trk.fit.ndof
+#NtpStRecord/trk/trk.fit.niterate
+#NtpStRecord/trk/trk.fit.nswimfail
+#NtpStRecord/trk/trk.fit.chi2
+#NtpStRecord/trk/trk.fit.cputime
+#NtpStRecord/trk/trk.fit.bave
+#NtpStRecord/trk/trk.cr.zenith
+#NtpStRecord/trk/trk.cr.azimuth
+#NtpStRecord/trk/trk.cr.ra
+#NtpStRecord/trk/trk.cr.rahourangle
+#NtpStRecord/trk/trk.cr.dec
+#NtpStRecord/trk/trk.cr.juliandate
+#NtpStRecord/trk/trk.cr.locsiderialtime
+
+# ────────────────────────────────────────────────────────────────────
+# evt — reconstructed events
+# Reconstruction output. Includes evt.vtx.*, the reconstructed vertex:
+# analyses use it, but it is not something the detector recorded.
+# ────────────────────────────────────────────────────────────────────
+#NtpStRecord/evt/evt.index
+#NtpStRecord/evt/evt.slc
+#NtpStRecord/evt/evt.ndigit
+#NtpStRecord/evt/evt.nstpcnt
+#NtpStRecord/evt/evt.nstrip
+#NtpStRecord/evt/evt.stp
+#NtpStRecord/evt/evt.stpph0sigmap
+#NtpStRecord/evt/evt.stpph0mip
+#NtpStRecord/evt/evt.stpph0gev
+#NtpStRecord/evt/evt.stpph1sigmap
+#NtpStRecord/evt/evt.stpph1mip
+#NtpStRecord/evt/evt.stpph1gev
+#NtpStRecord/evt/evt.nshower
+#NtpStRecord/evt/evt.shw
+#NtpStRecord/evt/evt.ntrack
+#NtpStRecord/evt/evt.trk
+#NtpStRecord/evt/evt.primshw
+#NtpStRecord/evt/evt.primtrk
+#NtpStRecord/evt/evt.contained
+#NtpStRecord/evt/evt.ph.raw
+#NtpStRecord/evt/evt.ph.siglin
+#NtpStRecord/evt/evt.ph.sigcor
+#NtpStRecord/evt/evt.ph.pe
+#NtpStRecord/evt/evt.ph.sigmap
+#NtpStRecord/evt/evt.ph.mip
+#NtpStRecord/evt/evt.ph.gev
+#NtpStRecord/evt/evt.plane.n
+#NtpStRecord/evt/evt.plane.nu
+#NtpStRecord/evt/evt.plane.nv
+#NtpStRecord/evt/evt.plane.beg
+#NtpStRecord/evt/evt.plane.begu
+#NtpStRecord/evt/evt.plane.begv
+#NtpStRecord/evt/evt.plane.end
+#NtpStRecord/evt/evt.plane.endu
+#NtpStRecord/evt/evt.plane.endv
+#NtpStRecord/evt/evt.vtx.plane
+#NtpStRecord/evt/evt.vtx.u
+#NtpStRecord/evt/evt.vtx.v
+#NtpStRecord/evt/evt.vtx.x
+#NtpStRecord/evt/evt.vtx.y
+#NtpStRecord/evt/evt.vtx.z
+#NtpStRecord/evt/evt.vtx.t
+#NtpStRecord/evt/evt.vtx.dcosu
+#NtpStRecord/evt/evt.vtx.dcosv
+#NtpStRecord/evt/evt.vtx.dcosx
+#NtpStRecord/evt/evt.vtx.dcosy
+#NtpStRecord/evt/evt.vtx.dcosz
+#NtpStRecord/evt/evt.vtx.eu
+#NtpStRecord/evt/evt.vtx.ev
+#NtpStRecord/evt/evt.vtx.ex
+#NtpStRecord/evt/evt.vtx.ey
+#NtpStRecord/evt/evt.vtx.edcosu
+#NtpStRecord/evt/evt.vtx.edcosv
+#NtpStRecord/evt/evt.vtx.edcosx
+#NtpStRecord/evt/evt.vtx.edcosy
+#NtpStRecord/evt/evt.vtx.edcosz
+#NtpStRecord/evt/evt.end.plane
+#NtpStRecord/evt/evt.end.u
+#NtpStRecord/evt/evt.end.v
+#NtpStRecord/evt/evt.end.x
+#NtpStRecord/evt/evt.end.y
+#NtpStRecord/evt/evt.end.z
+#NtpStRecord/evt/evt.end.t
+#NtpStRecord/evt/evt.end.dcosu
+#NtpStRecord/evt/evt.end.dcosv
+#NtpStRecord/evt/evt.end.dcosx
+#NtpStRecord/evt/evt.end.dcosy
+#NtpStRecord/evt/evt.end.dcosz
+#NtpStRecord/evt/evt.end.eu
+#NtpStRecord/evt/evt.end.ev
+#NtpStRecord/evt/evt.end.ex
+#NtpStRecord/evt/evt.end.ey
+#NtpStRecord/evt/evt.end.edcosu
+#NtpStRecord/evt/evt.end.edcosv
+#NtpStRecord/evt/evt.end.edcosx
+#NtpStRecord/evt/evt.end.edcosy
+#NtpStRecord/evt/evt.end.edcosz
+#NtpStRecord/evt/evt.bleach.lateBucketPHFraction
+#NtpStRecord/evt/evt.bleach.timeWeightedPHFraction
+#NtpStRecord/evt/evt.bleach.straightPHFraction
+#NtpStRecord/evt/evt.bleach.fixedWindowPH
+#NtpStRecord/evt/evt.bleach.eventDuration
+#NtpStRecord/evt/evt.win.begplane
+#NtpStRecord/evt/evt.win.endplane
+#NtpStRecord/evt/evt.win.begtime
+#NtpStRecord/evt/evt.win.endtime
+#NtpStRecord/evt/evt.win.totalQ
+#NtpStRecord/evt/evt.win.specQ
+#NtpStRecord/evt/evt.win.pinstQ
+#NtpStRecord/evt/evt.win.utotalQ
+#NtpStRecord/evt/evt.win.uspecQ
+#NtpStRecord/evt/evt.win.upinstQ
+
+# ────────────────────────────────────────────────────────────────────
+# mc — per-event interaction truth
+# ────────────────────────────────────────────────────────────────────
+#NtpStRecord/mc/mc.index    # array position
+#NtpStRecord/mc/mc.stdhep[2]    # index range into stdhep; joined per event instead
+#NtpStRecord/mc/mc.inu    # the stdhep neutrino row's PDG code
+NtpStRecord/mc/mc.inunoosc
+NtpStRecord/mc/mc.itg
+#NtpStRecord/mc/mc.iboson    # unset sentinel; should be the exchange boson PDG
+NtpStRecord/mc/mc.iresonance
+NtpStRecord/mc/mc.iaction
+NtpStRecord/mc/mc.istruckq
+NtpStRecord/mc/mc.iflags
+NtpStRecord/mc/mc.ndigu
+NtpStRecord/mc/mc.ndigv
+NtpStRecord/mc/mc.tphu
+NtpStRecord/mc/mc.tphv
+#NtpStRecord/mc/mc.a    # decodes from the stdhep nucleus row's PDG code
+#NtpStRecord/mc/mc.z    # likewise; not Bjorken z and not a position
+NtpStRecord/mc/mc.sigma
+NtpStRecord/mc/mc.sigmadiff
+NtpStRecord/mc/mc.x
+NtpStRecord/mc/mc.y
+NtpStRecord/mc/mc.q2
+NtpStRecord/mc/mc.w2
+NtpStRecord/mc/mc.emfrac
+#NtpStRecord/mc/mc.vtxx    # the stdhep neutrino row's vtx[0]
+#NtpStRecord/mc/mc.vtxy    # its vtx[1]
+#NtpStRecord/mc/mc.vtxz    # its vtx[2]
+#NtpStRecord/mc/mc.p4neu[4]    # the stdhep neutrino row's p4
+NtpStRecord/mc/mc.p4neunoosc[4]
+#NtpStRecord/mc/mc.p4tgt[4]    # the stdhep struck-nucleon or nucleus row's p4
+NtpStRecord/mc/mc.p4shw[4]
+NtpStRecord/mc/mc.p4mu1[4]    # duplicates an stdhep lepton row, energy sign flipped
+#NtpStRecord/mc/mc.p4mu2[4]    # a second stdhep muon row, where one exists
+#NtpStRecord/mc/mc.p4el1[4]    # an stdhep electron row
+#NtpStRecord/mc/mc.p4el2[4]    # a second stdhep electron row
+#NtpStRecord/mc/mc.p4tau[4]    # an stdhep tau row; no tau-neutrino events in any file checked
+#NtpStRecord/mc/mc.flux.index    # array position
+NtpStRecord/mc/mc.flux.fluxrun
+NtpStRecord/mc/mc.flux.fluxevtno
+NtpStRecord/mc/mc.flux.ndxdz
+NtpStRecord/mc/mc.flux.ndydz
+NtpStRecord/mc/mc.flux.npz
+NtpStRecord/mc/mc.flux.nenergy
+NtpStRecord/mc/mc.flux.ndxdznear
+NtpStRecord/mc/mc.flux.ndydznear
+NtpStRecord/mc/mc.flux.nenergynear
+NtpStRecord/mc/mc.flux.nwtnear
+NtpStRecord/mc/mc.flux.ndxdzfar
+NtpStRecord/mc/mc.flux.ndydzfar
+NtpStRecord/mc/mc.flux.nenergyfar
+NtpStRecord/mc/mc.flux.nwtfar
+NtpStRecord/mc/mc.flux.norig
+NtpStRecord/mc/mc.flux.ndecay
+NtpStRecord/mc/mc.flux.ntype
+NtpStRecord/mc/mc.flux.vx
+NtpStRecord/mc/mc.flux.vy
+NtpStRecord/mc/mc.flux.vz
+NtpStRecord/mc/mc.flux.pdpx
+NtpStRecord/mc/mc.flux.pdpy
+NtpStRecord/mc/mc.flux.pdpz
+NtpStRecord/mc/mc.flux.ppdxdz
+NtpStRecord/mc/mc.flux.ppdydz
+NtpStRecord/mc/mc.flux.pppz
+NtpStRecord/mc/mc.flux.ppenergy
+NtpStRecord/mc/mc.flux.ppmedium
+NtpStRecord/mc/mc.flux.ptype
+NtpStRecord/mc/mc.flux.ppvx
+NtpStRecord/mc/mc.flux.ppvy
+NtpStRecord/mc/mc.flux.ppvz
+NtpStRecord/mc/mc.flux.muparpx
+NtpStRecord/mc/mc.flux.muparpy
+NtpStRecord/mc/mc.flux.muparpz
+NtpStRecord/mc/mc.flux.mupare
+NtpStRecord/mc/mc.flux.necm
+NtpStRecord/mc/mc.flux.nimpwt
+NtpStRecord/mc/mc.flux.xpoint
+NtpStRecord/mc/mc.flux.ypoint
+NtpStRecord/mc/mc.flux.zpoint
+NtpStRecord/mc/mc.flux.tvx
+NtpStRecord/mc/mc.flux.tvy
+NtpStRecord/mc/mc.flux.tvz
+NtpStRecord/mc/mc.flux.tpx
+NtpStRecord/mc/mc.flux.tpy
+NtpStRecord/mc/mc.flux.tpz
+NtpStRecord/mc/mc.flux.tptype
+NtpStRecord/mc/mc.flux.tgen
+NtpStRecord/mc/mc.flux.tgptype
+NtpStRecord/mc/mc.flux.tgppx
+NtpStRecord/mc/mc.flux.tgppy
+NtpStRecord/mc/mc.flux.tgppz
+NtpStRecord/mc/mc.flux.tprivx
+NtpStRecord/mc/mc.flux.tprivy
+NtpStRecord/mc/mc.flux.tprivz
+NtpStRecord/mc/mc.flux.beamx
+NtpStRecord/mc/mc.flux.beamy
+NtpStRecord/mc/mc.flux.beamz
+NtpStRecord/mc/mc.flux.beampx
+NtpStRecord/mc/mc.flux.beampy
+NtpStRecord/mc/mc.flux.beampz
+#NtpStRecord/mc/mc.fluxwgt.index    # array position
+NtpStRecord/mc/mc.fluxwgt.beam[33]
+NtpStRecord/mc/mc.fluxwgt.version
+NtpStRecord/mc/mc.fluxwgt.weight
+NtpStRecord/mc/mc.fluxwgt.weighterr
+
+# ────────────────────────────────────────────────────────────────────
+# stdhep — truth particle stack
+# ────────────────────────────────────────────────────────────────────
+#NtpStRecord/stdhep/stdhep.index    # array position
+#NtpStRecord/stdhep/stdhep.mc    # back-index to the interaction record
+NtpStRecord/stdhep/stdhep.parent[2]
+NtpStRecord/stdhep/stdhep.child[2]
+NtpStRecord/stdhep/stdhep.IstHEP
+NtpStRecord/stdhep/stdhep.IdHEP
+NtpStRecord/stdhep/stdhep.mass
+NtpStRecord/stdhep/stdhep.p4[4]
+NtpStRecord/stdhep/stdhep.vtx[4]
+NtpStRecord/stdhep/stdhep.ndethit
+#NtpStRecord/stdhep/stdhep.dethit[2]    # first/last hit per particle; a C++ struct uproot reads as objects
+
+# ────────────────────────────────────────────────────────────────────
+# digihit — per-digit truth
+# The finest-grained truth there is (entry/exit point and path length per
+# particle per strip), but empty in every file checked.
+# ────────────────────────────────────────────────────────────────────
+#NtpStRecord/digihit/digihit.index
+#NtpStRecord/digihit/digihit.planeview
+#NtpStRecord/digihit/digihit.strip
+#NtpStRecord/digihit/digihit.plane
+#NtpStRecord/digihit/digihit.trkId
+#NtpStRecord/digihit/digihit.pId
+#NtpStRecord/digihit/digihit.t0
+#NtpStRecord/digihit/digihit.x0
+#NtpStRecord/digihit/digihit.y0
+#NtpStRecord/digihit/digihit.z0
+#NtpStRecord/digihit/digihit.t1
+#NtpStRecord/digihit/digihit.x1
+#NtpStRecord/digihit/digihit.y1
+#NtpStRecord/digihit/digihit.z1
+#NtpStRecord/digihit/digihit.dS
+#NtpStRecord/digihit/digihit.dE
+#NtpStRecord/digihit/digihit.pE
+#NtpStRecord/digihit/digihit.failbits
+
+# ────────────────────────────────────────────────────────────────────
+# thstp — per-strip truth: which particles lit each hit
+# ────────────────────────────────────────────────────────────────────
+#NtpStRecord/thstp/thstp.index    # array position
+NtpStRecord/thstp/thstp.neumc
+NtpStRecord/thstp/thstp.nneu
+NtpStRecord/thstp/thstp.sigflg
+NtpStRecord/thstp/thstp.stdhep[3]
+NtpStRecord/thstp/thstp.phfrac[3]
+
+# ────────────────────────────────────────────────────────────────────
+# thslc — truth matching for slices
+# As thevt.
+# ────────────────────────────────────────────────────────────────────
+#NtpStRecord/thslc/thslc.index
+#NtpStRecord/thslc/thslc.neumc
+#NtpStRecord/thslc/thslc.neustdhep
+#NtpStRecord/thslc/thslc.nneu
+#NtpStRecord/thslc/thslc.purity
+#NtpStRecord/thslc/thslc.secondpurity
+#NtpStRecord/thslc/thslc.complete
+
+# ────────────────────────────────────────────────────────────────────
+# thshw — truth matching for showers
+# As thevt.
+# ────────────────────────────────────────────────────────────────────
+#NtpStRecord/thshw/thshw.index
+#NtpStRecord/thshw/thshw.neumc
+#NtpStRecord/thshw/thshw.neustdhep
+#NtpStRecord/thshw/thshw.purity
+#NtpStRecord/thshw/thshw.completeall
+#NtpStRecord/thshw/thshw.completeslc
+#NtpStRecord/thshw/thshw.completeallnopecut
+#NtpStRecord/thshw/thshw.completeslcnopecut
+
+# ────────────────────────────────────────────────────────────────────
+# thtrk — truth matching for tracks
+# As thevt.
+# ────────────────────────────────────────────────────────────────────
+#NtpStRecord/thtrk/thtrk.index
+#NtpStRecord/thtrk/thtrk.neumc
+#NtpStRecord/thtrk/thtrk.neustdhep
+#NtpStRecord/thtrk/thtrk.trkstdhep
+#NtpStRecord/thtrk/thtrk.purity
+#NtpStRecord/thtrk/thtrk.completeall
+#NtpStRecord/thtrk/thtrk.completeslc
+
+# ────────────────────────────────────────────────────────────────────
+# thevt — truth matching for reconstructed events
+# Meaningless without the reco object it describes.
+# ────────────────────────────────────────────────────────────────────
+#NtpStRecord/thevt/thevt.index
+#NtpStRecord/thevt/thevt.neumc
+#NtpStRecord/thevt/thevt.neustdhep
+#NtpStRecord/thevt/thevt.purity
+#NtpStRecord/thevt/thevt.completeall
+#NtpStRecord/thevt/thevt.completeslc
+#NtpStRecord/thevt/thevt.completeallnopecut
+#NtpStRecord/thevt/thevt.completeslcnopecut
