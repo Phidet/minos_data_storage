@@ -47,13 +47,13 @@ output name.
 |------|--|
 | `-f, --format {hdf5,root}` | output format (default `hdf5`) |
 | `--pattern GLOB` | which files to pick up (default `**/*.root`) |
-| `--branches FILE` | a manifest other than `branches.txt` |
-| `--compression {gzip,lzf,none}` | default `gzip` |
+| `--manifest FILE` | a manifest other than `branches.txt` |
+| `--compression C` | `gzip`/`lzf`/`none` for HDF5, `zlib`/`none` for ROOT (default `gzip`) |
 | `--max-events N` | keep only the first N events per file (testing) |
 | `--overwrite` | reconvert files whose output already exists |
 | `--dry-run` | list planned work and stop |
 | `--no-check` | skip the exclusion checks described below |
-| `--dump-branches FILE` | print every branch in a file, as manifest lines |
+| `--dump-branches` | print every branch in the input, as manifest lines |
 
 ## What gets archived: `branches.txt`
 

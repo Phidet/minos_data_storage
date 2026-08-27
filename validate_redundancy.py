@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
-"""Verify, against a MINOS sntp ROOT file, that every branch
+"""Superseded by check_exclusions.py, which is where these rules now run.
+
+Kept because it is the source they were ported from, and because it is the
+record of how each redundancy claim was established -- SCHEMA.md notes that
+a hand-derived version of the lepton rule was wrong once. It refers
+throughout to root_to_parquet.py, the Parquet converter this repo used
+before the rewrite; that script is gone, but the claims it encoded are the
+same ones branches.txt now records.
+
+Verify, against a MINOS sntp ROOT file, that every branch
 root_to_parquet.py drops as "redundant" is actually safe to drop on
 *this* file.
 
