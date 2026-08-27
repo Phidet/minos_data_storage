@@ -78,8 +78,11 @@ different branch set, regenerate the list with
 `branches.py` parses it, and checks the count in the header comment against
 the number actually enabled, so the two cannot drift apart.
 
-**[BRANCHES.md](BRANCHES.md) is the reference**: what every branch means,
-and why each excluded one is excluded.
+**[BRANCHES.md](BRANCHES.md) is the reference**: all 755 branches, grouped
+as the file groups them, each with its meaning and a ✓/✗ saying whether it
+is archived. It is generated from the manifest by `make_branches_doc.py`, so
+the ticks cannot drift out of step — regenerate it after editing
+`branches.txt`.
 
 ## Output formats
 
@@ -167,7 +170,8 @@ checked: there is no claim to test.
 |--|--|
 | [`branches.txt`](branches.txt) | the manifest — every branch, grouped, with reasons |
 | [`branches.py`](branches.py) | parses it |
-| [`BRANCHES.md`](BRANCHES.md) | what each branch means, and why the excluded ones are out |
+| [`BRANCHES.md`](BRANCHES.md) | all 755 branches, what each means, and whether it is archived |
+| [`make_branches_doc.py`](make_branches_doc.py) | regenerates BRANCHES.md from the manifest |
 | [`formats.py`](formats.py) | HDF5 and ROOT writers and readers |
 | [`export.py`](export.py) | the CLI |
 | [`check_exclusions.py`](check_exclusions.py) | verifies the assumptions behind dropped branches |
