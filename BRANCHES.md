@@ -625,11 +625,11 @@ Reconstructed tracks — fitted muon trajectories, and the largest group in the 
 | ✗ | `trk.fidend.trace` | Path length from the track end to where it leaves the fiducial volume [m]. |
 | ✗ | `trk.fidend.tracez` | The same measured along z [m]. |
 | ✗ | `trk.fidend.nplane` | Planes between the track end and the fiducial boundary. |
-| ✗ | `trk.fidall.dr` | Radial distance from the track as a whole to the fiducial boundary [m]. |
-| ✗ | `trk.fidall.dz` | Distance along z from the track as a whole to the fiducial boundary [m]. |
-| ✗ | `trk.fidall.trace` | Path length from the track as a whole to where it leaves the fiducial volume [m]. |
+| ✗ | `trk.fidall.dr` | Smallest radial distance to the fiducial boundary reached anywhere along the track — the minimum over the start, the end, and every strip on it [m]. |
+| ✗ | `trk.fidall.dz` | The same for the distance along z [m]. |
+| ✗ | `trk.fidall.trace` | The same for the path length remaining inside the fiducial volume [m]. |
 | ✗ | `trk.fidall.tracez` | The same measured along z [m]. |
-| ✗ | `trk.fidall.nplane` | Planes between the track as a whole and the fiducial boundary. |
+| ✗ | `trk.fidall.nplane` | The same for the number of planes to the boundary. |
 | ✗ | `trk.time.ndigit` | Digits used in the track's timing fit. |
 | ✗ | `trk.time.chi2` | χ² of that fit. |
 | ✗ | `trk.time.u0` | Fitted time at the track start, u view [s]. |
@@ -976,7 +976,7 @@ Truth matching for reconstructed tracks. Unlike `thstp`, which labels the strips
 
 ## `thevt` — 0 of 8 archived
 
-Truth matching for reconstructed reconstructed events. Unlike `thstp`, which labels the strips the archive keeps, this is meaningless without the reconstructed object it describes.
+Truth matching for reconstructed events. Unlike `thstp`, which labels the strips the archive keeps, this is meaningless without the reconstructed object it describes.
 
 | | Branch | Meaning |
 |--|--------|---------|

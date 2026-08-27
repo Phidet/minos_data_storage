@@ -68,13 +68,26 @@ def planes(what: str) -> dict[str, str]:
     }
 
 
-def fiducial(which: str) -> dict[str, str]:
-    """NtpSRFiducial: how far the point sits inside the fiducial volume."""
+def fiducial(which: str, whole_track: bool = False) -> dict[str, str]:
+    """NtpSRFiducial: how far the point sits inside the fiducial volume.
+
+    `fidall` is not a point at all: each of its fields is the minimum over
+    the track start, the track end and every strip along the track, so it
+    answers "how close did this track ever get to the boundary".
+    """
+    if whole_track:
+        return {
+            "dr": "Smallest radial distance to the fiducial boundary reached anywhere along the track — the minimum over the start, the end, and every strip on it [m].",
+            "dz": "The same for the distance along z [m].",
+            "trace": "The same for the path length remaining inside the fiducial volume [m].",
+            "tracez": "The same measured along z [m].",
+            "nplane": "The same for the number of planes to the boundary.",
+        }
     return {
         "dr": f"Radial distance from the {which} to the fiducial boundary [m].",
         "dz": f"Distance along z from the {which} to the fiducial boundary [m].",
         "trace": f"Path length from the {which} to where it leaves the fiducial volume [m].",
-        "tracez": f"The same measured along z [m].",
+        "tracez": "The same measured along z [m].",
         "nplane": f"Planes between the {which} and the fiducial boundary.",
     }
 
@@ -509,7 +522,7 @@ largest group in the file. All of it is reconstruction output.""",
     | {f"lin.{k}": v for k, v in vertex("track start from the linear fit").items()}
     | {f"fidvtx.{k}": v for k, v in fiducial("track start").items()}
     | {f"fidend.{k}": v for k, v in fiducial("track end").items()}
-    | {f"fidall.{k}": v for k, v in fiducial("track as a whole").items()}
+    | {f"fidall.{k}": v for k, v in fiducial("track", whole_track=True).items()}
     | {
         "time.ndigit": "Digits used in the track's timing fit.",
         "time.chi2": "χ² of that fit.",
@@ -769,8 +782,10 @@ def truth_match(obj: str, extra: dict[str, str] | None = None) -> dict[str, str]
     return d | (extra or {})
 
 
-for g, obj in (("thslc", "slice"), ("thshw", "shower"),
-               ("thtrk", "track"), ("thevt", "reconstructed event")):
+for g, obj, plural in (("thslc", "slice", "slices"),
+                       ("thshw", "shower", "showers"),
+                       ("thtrk", "track", "tracks"),
+                       ("thevt", "reconstructed event", "events")):
     extra = {}
     if g == "thslc":
         extra = {"nneu": "How many interactions contributed to the slice.",
@@ -778,7 +793,7 @@ for g, obj in (("thslc", "slice"), ("thshw", "shower"),
                  "complete": "Fraction of the matched interaction's energy that ended up in the slice."}
     if g == "thtrk":
         extra = {"trkstdhep": "Index of the truth particle the track itself was matched to."}
-    group(g, f"""Truth matching for reconstructed {obj}s. Unlike `thstp`,
+    group(g, f"""Truth matching for reconstructed {plural}. Unlike `thstp`,
 which labels the strips the archive keeps, this is meaningless without the
 reconstructed object it describes.""", truth_match(obj, extra))
 
