@@ -10,8 +10,11 @@ The first column says whether the branch is in the archive by default:
 not be established is marked **???**.
 
 Descriptions come from the MINOS LOON sources — the `NtpSR*`/`NtpMC*`/
-`NtpTH*` class headers and the modules that fill them. Where a branch is
-excluded, the description says why.
+`NtpTH*` class headers and the modules that fill them. A **???** means the
+meaning could not be established from those sources: usually the field is
+declared and read but nothing in the code available here sets it, so any
+description would be a guess from the name. Where a branch is excluded, the
+description says why.
 
 Two themes run through the exclusions, and are worth stating once:
 
@@ -110,7 +113,7 @@ Veto shield summary for a reconstructed track: what the shield saw around the ti
 | ✗ | `vetohdr.adc[3]` | Summed shield ADC in each time window. |
 | ✗ | `vetohdr.dx[3]` | Closest approach between the track projection and a shield hit, per window [m]. |
 | ✗ | `vetohdr.dxvetostp[3]` | Index into `vetostp` of the hit that achieved it. |
-| ✗ | `vetohdr.dcos` | Direction cosine of the track where it was projected to the shield. |
+| ✗ | `vetohdr.dcos` | One component of the track's direction where it was projected to the shield — which component depends on the shield section the crossing was in. |
 | ✗ | `vetohdr.projx` | x where the track was projected to cross the shield [m]. |
 | ✗ | `vetohdr.projy` | y of the same projection [m]. |
 | ✗ | `vetohdr.projz` | z of the same projection [m]. |
@@ -154,11 +157,11 @@ Magnet and high-voltage state. Needed to interpret momentum and charge sign, so 
 
 | | Branch | Meaning |
 |--|--------|---------|
-| ✓ | `detstatus.coilstatus` | Magnet coil on/off and polarity. |
-| ✓ | `detstatus.dcscoilstatus` | The same as reported by the slow-control system. |
-| ✓ | `detstatus.coilcurrent1` | Magnet coil current, which sets the field and hence the momentum and charge-sign measurement [A]. |
-| ✓ | `detstatus.coilcurrent2` | Second coil current reading [A]. |
-| ✓ | `detstatus.dbuhvstatus` | Photomultiplier high-voltage status. |
+| ✓ | `detstatus.coilstatus` | **Always `0`.** The filler sets it unconditionally and comments that the variable is deprecated; `dcscoilstatus` is the one that carries the real state. Archived anyway, since it costs nothing and an empty field is itself a fact about the file. |
+| ✓ | `detstatus.dcscoilstatus` | Magnet coil state from the slow-control system: OK or bad, with a reverse-polarity bit OR'd in. At the Far Detector the two supermodules must agree, or it is set to unknown. |
+| ✓ | `detstatus.coilcurrent1` | Coil current, which sets the field and hence the momentum and charge-sign measurement [A]. Supermodule 1 at the Far Detector, the single coil at the Near. `-999.9` when unknown. |
+| ✓ | `detstatus.coilcurrent2` | Supermodule 2's coil current [A]. Far Detector only; `-999.9` otherwise. |
+| ✓ | `detstatus.dbuhvstatus` | Photomultiplier high-voltage status. `-1` when unknown. |
 | ✓ | `detstatus.coldchips1` | Front-end chips below high-voltage threshold in supermodule 1. |
 | ✓ | `detstatus.coldchips2` | The same for supermodule 2. |
 
@@ -388,17 +391,17 @@ Clusters — groups of hits within one view, upstream of track and shower fittin
 | ✗ | `clu.nplane` | Planes the cluster spans. |
 | ✗ | `clu.begplane` | First plane of the cluster. |
 | ✗ | `clu.endplane` | Last plane of the cluster. |
-| ✗ | `clu.id` | Cluster type identifier assigned by the clustering algorithm. |
+| ✗ | `clu.id` | Cluster type identifier. **???** — no code that sets it appears in the LOON sources available here. |
 | ✗ | `clu.slc` | Index of the slice this cluster belongs to. |
 | ✗ | `clu.ndigit` | Digits (single-end readouts) making up the cluster. |
 | ✗ | `clu.nstpcnt` | Strips counted toward the cluster, including repeats across planes. |
 | ✗ | `clu.nstrip` | Strips making up the cluster. |
 | ✗ | `clu.stp` | Indices of the strips in this cluster, into the `stp` array. |
-| ✗ | `clu.probem` | Likelihood the cluster is electromagnetic rather than hadronic. |
-| ✗ | `clu.zvtx` | z of the cluster's start [m]. |
-| ✗ | `clu.tposvtx` | Transverse position of the cluster's start [m]. |
-| ✗ | `clu.slope` | Slope of the cluster in the transverse-versus-z plane. |
-| ✗ | `clu.avgdev` | Mean deviation of the hits from that slope — how straight the cluster is. |
+| ✗ | `clu.probem` | Used elsewhere as an electromagnetic-likelihood cut (`probem > 0.2`), so it reads as the probability the cluster is electromagnetic. **???** — nothing in the available sources sets it. |
+| ✗ | `clu.zvtx` | z of the cluster's start [m]. **???** |
+| ✗ | `clu.tposvtx` | Transverse position of the cluster's start [m]. **???** |
+| ✗ | `clu.slope` | Slope of the cluster in the transverse-versus-z plane. **???** |
+| ✗ | `clu.avgdev` | Mean deviation of the hits from that slope — how straight the cluster is. **???** |
 | ✗ | `clu.ph.raw` | Summed raw ADC over the cluster. |
 | ✗ | `clu.ph.siglin` | The same, linearity-corrected. |
 | ✗ | `clu.ph.sigcor` | The same, also corrected for fibre attenuation. |
@@ -491,7 +494,7 @@ Reconstructed showers — hadronic or electromagnetic energy deposits, fitted fr
 | ✗ | `shw.sss.phTrkLikeV` | The same in the v view. |
 | ✗ | `shw.sss.probEMU` | Likelihood the u-view shower is electromagnetic. |
 | ✗ | `shw.sss.probEMV` | The same in the v view. |
-| ✗ | `shw.sss.compactU` | How compact the shower is in the u view. |
+| ✗ | `shw.sss.compactU` | Compactness of the shower in the u view: `1` for a single cluster, otherwise a derived measure of how tightly the clusters group. |
 | ✗ | `shw.sss.compactV` | The same in the v view. |
 
 ## `trk` — 0 of 162 archived
@@ -529,7 +532,7 @@ Reconstructed tracks — fitted muon trajectories, and the largest group in the 
 | ✗ | `trk.stptcal0t0` | Calibration T0 offset applied at each strip, east end [s]. |
 | ✗ | `trk.stptcal1t0` | The same, west end [s]. |
 | ✗ | `trk.ds` | Track path length [m]. |
-| ✗ | `trk.range` | Range of the track through the steel [g/cm²]. |
+| ✗ | `trk.range` | Range from the track start to its end [g/cm²]. |
 | ✗ | `trk.cputime` | CPU seconds spent reconstructing the track. |
 | ✗ | `trk.contained` | Whether the track is fully contained in the detector. |
 | ✗ | `trk.ph.raw` | Summed raw ADC over the track. |
@@ -633,9 +636,9 @@ Reconstructed tracks — fitted muon trajectories, and the largest group in the 
 | ✗ | `trk.time.u1` | Fitted time at the track end, u view [s]. |
 | ✗ | `trk.time.v0` | The same at the start, v view [s]. |
 | ✗ | `trk.time.v1` | The same at the end, v view [s]. |
-| ✗ | `trk.time.cdtds` | Fitted speed along the track, as a fraction of c. |
-| ✗ | `trk.time.du` | Path length spanned in the u view [m]. |
-| ✗ | `trk.time.dv` | The same in the v view [m]. |
+| ✗ | `trk.time.cdtds` | The fitted time gradient multiplied by c, i.e. 1/β — `1` for a particle at the speed of light, larger for a slower one. Note it is the *inverse* of speed, and it is taken as an absolute value, so unlike `dtds` it carries no direction. |
+| ✗ | `trk.time.du` | Path length spanned in the u view [m]. **???** |
+| ✗ | `trk.time.dv` | The same in the v view [m]. **???** |
 | ✗ | `trk.time.dtds` | Fitted time gradient along the track [s/m]; its sign gives the direction of travel. |
 | ✗ | `trk.time.t0` | Fitted time at the track start [s]. |
 | ✗ | `trk.time.forwardRMS` | Timing residual RMS assuming the track ran forwards. |
@@ -746,21 +749,21 @@ Reconstructed events — tracks and showers assembled into a neutrino interactio
 | ✗ | `evt.end.edcosx` | Uncertainty on the x direction cosine at the event end. |
 | ✗ | `evt.end.edcosy` | Uncertainty on the y direction cosine at the event end. |
 | ✗ | `evt.end.edcosz` | Uncertainty on the z direction cosine at the event end. |
-| ✗ | `evt.bleach.lateBucketPHFraction` | Fraction of the event's pulse height arriving in late time buckets — used to spot afterpulsing in the photomultipliers. |
+| ✗ | `evt.bleach.lateBucketPHFraction` | Fraction of the event's pulse height arriving in late time buckets. Computed alongside a photomultiplier afterpulsing prediction, which is what it is there to catch. |
 | ✗ | `evt.bleach.timeWeightedPHFraction` | The same fraction weighted by arrival time. |
 | ✗ | `evt.bleach.straightPHFraction` | Fraction of pulse height lying along a straight path through the event. |
 | ✗ | `evt.bleach.fixedWindowPH` | Pulse height inside a fixed time window. |
 | ✗ | `evt.bleach.eventDuration` | How long the event's hits span [s]. |
-| ✗ | `evt.win.begplane` | First plane of the event's time window. |
-| ✗ | `evt.win.endplane` | Last plane of it. |
-| ✗ | `evt.win.begtime` | Start of the window [s]. |
-| ✗ | `evt.win.endtime` | End of it [s]. |
-| ✗ | `evt.win.totalQ` | Total charge in the window. |
-| ✗ | `evt.win.specQ` | Charge in the window attributed to this event specifically. |
-| ✗ | `evt.win.pinstQ` | Peak instantaneous charge in the window. |
-| ✗ | `evt.win.utotalQ` | Total charge in the window, u view. |
-| ✗ | `evt.win.uspecQ` | The event's own charge in the window, u view. |
-| ✗ | `evt.win.upinstQ` | Peak instantaneous charge in the window, u view. |
+| ✗ | `evt.win.begplane` | First plane of the event's window: the event's own first plane, extended upstream by a fixed number of planes. |
+| ✗ | `evt.win.endplane` | Last plane of it, extended downstream the same way. |
+| ✗ | `evt.win.begtime` | Start of the window [s]: the event's start time, extended by a fixed offset. |
+| ✗ | `evt.win.endtime` | End of the window [s], extended the same way. |
+| ✗ | `evt.win.totalQ` | Summed attenuation-corrected charge of every strip in that window. |
+| ✗ | `evt.win.specQ` | Near Detector only: the part of that charge from planes in the spectrometer section, downstream of the fully-instrumented region. Zero at the Far Detector. |
+| ✗ | `evt.win.pinstQ` | Near Detector only: the part from the partially-instrumented strip range. Zero at the Far Detector. |
+| ✗ | `evt.win.utotalQ` | The same as `totalQ` but counting only strips left unassociated with any reconstructed object — the `u` prefix is *unassociated*, not the u view. |
+| ✗ | `evt.win.uspecQ` | `specQ` restricted to those unassociated strips. |
+| ✗ | `evt.win.upinstQ` | `pinstQ` restricted to those unassociated strips. |
 
 ## `mc` — 86 of 103 archived
 
@@ -924,7 +927,7 @@ Truth for each strip in `stp`: which simulated particles deposited energy there,
 | ✗ | `thstp.index` | Position of the record in its array. Row order already carries it. |
 | ✓ | `thstp.neumc` | Index of the interaction (`mc` record) responsible for the strip. |
 | ✓ | `thstp.nneu` | How many interactions contributed to it. |
-| ✓ | `thstp.sigflg` | Signal flag: whether the hit is signal or noise. |
+| ✓ | `thstp.sigflg` | Signal flag. **???** — nothing in the available sources sets it, so the encoding is unconfirmed. |
 | ✓ | `thstp.stdhep[3]` | Up to three contributing `stdhep` particle indices. |
 | ✓ | `thstp.phfrac[3]` | Fraction of the strip's pulse height from each of those. |
 

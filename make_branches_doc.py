@@ -221,7 +221,7 @@ actual hits are kept in `vetostp`.""", {
     "adc[3]": "Summed shield ADC in each time window.",
     "dx[3]": "Closest approach between the track projection and a shield hit, per window [m].",
     "dxvetostp[3]": "Index into `vetostp` of the hit that achieved it.",
-    "dcos": "Direction cosine of the track where it was projected to the shield.",
+    "dcos": "One component of the track's direction where it was projected to the shield — which component depends on the shield section the crossing was in.",
     "projx": "x where the track was projected to cross the shield [m].",
     "projy": "y of the same projection [m].",
     "projz": "z of the same projection [m].",
@@ -257,11 +257,11 @@ fired. A reconstruction step, and its failure flags describe that step.""", {
 
 group("detstatus", """Magnet and high-voltage state. Needed to interpret
 momentum and charge sign, so all of it is archived.""", {
-    "coilstatus": "Magnet coil on/off and polarity.",
-    "dcscoilstatus": "The same as reported by the slow-control system.",
-    "coilcurrent1": "Magnet coil current, which sets the field and hence the momentum and charge-sign measurement [A].",
-    "coilcurrent2": "Second coil current reading [A].",
-    "dbuhvstatus": "Photomultiplier high-voltage status.",
+    "coilstatus": "**Always `0`.** The filler sets it unconditionally and comments that the variable is deprecated; `dcscoilstatus` is the one that carries the real state. Archived anyway, since it costs nothing and an empty field is itself a fact about the file.",
+    "dcscoilstatus": "Magnet coil state from the slow-control system: OK or bad, with a reverse-polarity bit OR'd in. At the Far Detector the two supermodules must agree, or it is set to unknown.",
+    "coilcurrent1": "Coil current, which sets the field and hence the momentum and charge-sign measurement [A]. Supermodule 1 at the Far Detector, the single coil at the Near. `-999.9` when unknown.",
+    "coilcurrent2": "Supermodule 2's coil current [A]. Far Detector only; `-999.9` otherwise.",
+    "dbuhvstatus": "Photomultiplier high-voltage status. `-1` when unknown.",
     "coldchips1": "Front-end chips below high-voltage threshold in supermodule 1.",
     "coldchips2": "The same for supermodule 2.",
 })
@@ -449,13 +449,13 @@ and shower fitting.""",
         "nplane": "Planes the cluster spans.",
         "begplane": "First plane of the cluster.",
         "endplane": "Last plane of the cluster.",
-        "id": "Cluster type identifier assigned by the clustering algorithm.",
+        "id": "Cluster type identifier. **???** — no code that sets it appears in the LOON sources available here.",
         "stp": "Indices of the strips in this cluster, into the `stp` array.",
-        "probem": "Likelihood the cluster is electromagnetic rather than hadronic.",
-        "zvtx": "z of the cluster's start [m].",
-        "tposvtx": "Transverse position of the cluster's start [m].",
-        "slope": "Slope of the cluster in the transverse-versus-z plane.",
-        "avgdev": "Mean deviation of the hits from that slope — how straight the cluster is.",
+        "probem": "Used elsewhere as an electromagnetic-likelihood cut (`probem > 0.2`), so it reads as the probability the cluster is electromagnetic. **???** — nothing in the available sources sets it.",
+        "zvtx": "z of the cluster's start [m]. **???**",
+        "tposvtx": "Transverse position of the cluster's start [m]. **???**",
+        "slope": "Slope of the cluster in the transverse-versus-z plane. **???**",
+        "avgdev": "Mean deviation of the hits from that slope — how straight the cluster is. **???**",
     }
     | {f"ph.{k}": v for k, v in pulseheight("cluster").items()})
 
@@ -486,7 +486,7 @@ deposits, fitted from the clusters.""",
         "sss.phTrkLikeV": "The same in the v view.",
         "sss.probEMU": "Likelihood the u-view shower is electromagnetic.",
         "sss.probEMV": "The same in the v view.",
-        "sss.compactU": "How compact the shower is in the u view.",
+        "sss.compactU": "Compactness of the shower in the u view: `1` for a single cluster, otherwise a derived measure of how tightly the clusters group.",
         "sss.compactV": "The same in the v view.",
     })
 
@@ -499,7 +499,7 @@ largest group in the file. All of it is reconstruction output.""",
         "stpfitprechi2": "The same before the final iteration.",
         "stpfitqp": "Fitted charge-over-momentum at each strip [e/GeV].",
         "ds": "Track path length [m].",
-        "range": "Range of the track through the steel [g/cm²].",
+        "range": "Range from the track start to its end [g/cm²].",
         "cputime": "CPU seconds spent reconstructing the track.",
     }
     | {f"ph.{k}": v for k, v in pulseheight("track").items()}
@@ -517,9 +517,9 @@ largest group in the file. All of it is reconstruction output.""",
         "time.u1": "Fitted time at the track end, u view [s].",
         "time.v0": "The same at the start, v view [s].",
         "time.v1": "The same at the end, v view [s].",
-        "time.cdtds": "Fitted speed along the track, as a fraction of c.",
-        "time.du": "Path length spanned in the u view [m].",
-        "time.dv": "The same in the v view [m].",
+        "time.cdtds": "The fitted time gradient multiplied by c, i.e. 1/β — `1` for a particle at the speed of light, larger for a slower one. Note it is the *inverse* of speed, and it is taken as an absolute value, so unlike `dtds` it carries no direction.",
+        "time.du": "Path length spanned in the u view [m]. **???**",
+        "time.dv": "The same in the v view [m]. **???**",
         "time.dtds": "Fitted time gradient along the track [s/m]; its sign gives the direction of travel.",
         "time.t0": "Fitted time at the track start [s].",
         "time.forwardRMS": "Timing residual RMS assuming the track ran forwards.",
@@ -573,21 +573,21 @@ this is the exclusion most likely to be questioned.""",
     | {f"vtx.{k}": v for k, v in vertex("event vertex").items()}
     | {f"end.{k}": v for k, v in vertex("event end").items()}
     | {
-        "bleach.lateBucketPHFraction": "Fraction of the event's pulse height arriving in late time buckets — used to spot afterpulsing in the photomultipliers.",
+        "bleach.lateBucketPHFraction": "Fraction of the event's pulse height arriving in late time buckets. Computed alongside a photomultiplier afterpulsing prediction, which is what it is there to catch.",
         "bleach.timeWeightedPHFraction": "The same fraction weighted by arrival time.",
         "bleach.straightPHFraction": "Fraction of pulse height lying along a straight path through the event.",
         "bleach.fixedWindowPH": "Pulse height inside a fixed time window.",
         "bleach.eventDuration": "How long the event's hits span [s].",
-        "win.begplane": "First plane of the event's time window.",
-        "win.endplane": "Last plane of it.",
-        "win.begtime": "Start of the window [s].",
-        "win.endtime": "End of it [s].",
-        "win.totalQ": "Total charge in the window.",
-        "win.specQ": "Charge in the window attributed to this event specifically.",
-        "win.pinstQ": "Peak instantaneous charge in the window.",
-        "win.utotalQ": "Total charge in the window, u view.",
-        "win.uspecQ": "The event's own charge in the window, u view.",
-        "win.upinstQ": "Peak instantaneous charge in the window, u view.",
+        "win.begplane": "First plane of the event's window: the event's own first plane, extended upstream by a fixed number of planes.",
+        "win.endplane": "Last plane of it, extended downstream the same way.",
+        "win.begtime": "Start of the window [s]: the event's start time, extended by a fixed offset.",
+        "win.endtime": "End of the window [s], extended the same way.",
+        "win.totalQ": "Summed attenuation-corrected charge of every strip in that window.",
+        "win.specQ": "Near Detector only: the part of that charge from planes in the spectrometer section, downstream of the fully-instrumented region. Zero at the Far Detector.",
+        "win.pinstQ": "Near Detector only: the part from the partially-instrumented strip range. Zero at the Far Detector.",
+        "win.utotalQ": "The same as `totalQ` but counting only strips left unassociated with any reconstructed object — the `u` prefix is *unassociated*, not the u view.",
+        "win.uspecQ": "`specQ` restricted to those unassociated strips.",
+        "win.upinstQ": "`pinstQ` restricted to those unassociated strips.",
     })
 
 group("mc", """Per-event interaction truth: what the generator says actually
@@ -749,7 +749,7 @@ labels data that is itself archived.""", {
     "index": "Position of the record in its array. Row order already carries it.",
     "neumc": "Index of the interaction (`mc` record) responsible for the strip.",
     "nneu": "How many interactions contributed to it.",
-    "sigflg": "Signal flag: whether the hit is signal or noise.",
+    "sigflg": "Signal flag. **???** — nothing in the available sources sets it, so the encoding is unconfirmed.",
     "stdhep[3]": "Up to three contributing `stdhep` particle indices.",
     "phfrac[3]": "Fraction of the strip's pulse height from each of those.",
 })
@@ -799,8 +799,11 @@ The first column says whether the branch is in the archive by default:
 not be established is marked **???**.
 
 Descriptions come from the MINOS LOON sources — the `NtpSR*`/`NtpMC*`/
-`NtpTH*` class headers and the modules that fill them. Where a branch is
-excluded, the description says why.
+`NtpTH*` class headers and the modules that fill them. A **???** means the
+meaning could not be established from those sources: usually the field is
+declared and read but nothing in the code available here sets it, so any
+description would be a guess from the name. Where a branch is excluded, the
+description says why.
 
 Two themes run through the exclusions, and are worth stating once:
 
