@@ -1,20 +1,26 @@
 #!/usr/bin/env python3
-"""Stage MINOS SNTP files from tape, convert them, ship the results.
+"""Stage MINOS SNTP files from tape and convert them, at Fermilab.
 
-Runs at Fermilab, next to the tape system. The SNTP files are what is big and
-the conversion is what makes them small, so converting here and sending only
-the output moves roughly a third of the bytes.
+Runs next to the tape system, because the SNTP files are what is big and the
+conversion is what makes them small -- a data file comes out around 3% of its
+input. Output is written to a MINOS data area; moving it onward is a separate
+bulk transfer, which keeps a days-long tape job independent of the network
+and puts no credentials on a shared machine.
 
-    python pipeline.py files.txt --work /scratch/me/minos \\
-        --ship me@ucl-host:/archive/minos/
+    python pipeline.py files.txt /exp/minos/data/users/$USER/archive
 
 Each file moves through:
 
-    pending -> requested -> online -> fetched -> converted -> shipped -> done
+    pending -> requested -> online -> fetched -> done
 
 `requested` means a prestage request is lodged with dCache; `online` means the
 file is on dCache disk and can be fetched cheaply. Progress is recorded in a
-ledger so a run over tens of thousands of files survives being interrupted.
+ledger beside the output, so a run over tens of thousands of files survives
+being interrupted -- and survives the staging area being wiped.
+
+Output stays at Fermilab. Moving it on is a separate bulk transfer (Globus,
+or a pull from the far end), which keeps a days-long tape job independent of
+the network and puts no credentials on a shared machine.
 
 On tape efficiency: `--prestage-ahead` is the setting that matters. dCache can
 order many outstanding requests by tape volume and mount each tape once, so
@@ -39,8 +45,9 @@ import branches as manifest
 import export
 
 # In order. A file only ever moves forward, or to "failed".
-FLOW = ["pending", "requested", "online", "fetched", "converted", "shipped", "done"]
-SHOWN = ["requested", "fetched", "converted", "shipped"]
+FLOW = ["pending", "requested", "online", "fetched", "done"]
+# (state, label) for the progress display
+SHOWN = [("requested", "staged"), ("fetched", "fetched"), ("done", "converted")]
 
 
 def now() -> str:
@@ -149,43 +156,6 @@ def fetch(src: str, dst: Path, dccp: str) -> tuple[bool, str]:
 
 
 # --------------------------------------------------------------------------
-# Shipping
-# --------------------------------------------------------------------------
-
-
-def ship(local: Path, rel: Path, destination: str) -> tuple[bool, str]:
-    """rsync one converted file to its place under `destination`.
-
-    Per file rather than in a batch, so progress is incremental and an
-    interrupted run resumes without re-sending what already landed.
-    `--partial` keeps a half-sent file to continue from.
-    """
-    sub = "" if str(rel.parent) == "." else f"{rel.parent}/"
-    if ":" in destination:
-        host, _, base = destination.partition(":")
-        remote_dir = f"{base.rstrip('/')}/{sub}".rstrip("/")
-        target = f"{host}:{remote_dir}/"
-        mkdir = subprocess.run(
-            ["ssh", host, "mkdir", "-p", remote_dir],
-            capture_output=True, text=True,
-        )
-        if mkdir.returncode != 0:
-            return False, f"remote mkdir failed: {(mkdir.stderr or '').strip()[:120]}"
-    else:
-        target_dir = Path(destination) / rel.parent
-        target_dir.mkdir(parents=True, exist_ok=True)
-        target = f"{target_dir}/"
-
-    done = subprocess.run(
-        ["rsync", "-a", "--partial", str(local), target],
-        capture_output=True, text=True,
-    )
-    if done.returncode != 0:
-        return False, f"rsync exited {done.returncode}: {(done.stderr or '').strip()[:160]}"
-    return True, ""
-
-
-# --------------------------------------------------------------------------
 # Progress
 # --------------------------------------------------------------------------
 
@@ -201,7 +171,7 @@ class Progress:
         self.total = total
         self.live = live
         self.drawn = 0
-        self.bytes_sent = 0
+        self.bytes_out = 0
         self.note = ""
 
     def line(self, message: str) -> None:
@@ -212,19 +182,19 @@ class Progress:
         print(message, flush=True)
 
     def draw(self, ledger: Ledger) -> None:
-        counts = {s: ledger.reached(s) for s in SHOWN}
+        counts = {state: ledger.reached(state) for state, _ in SHOWN}
         failed = len(ledger.in_state("failed"))
         if not self.live:
             return
         if self.drawn:
             sys.stdout.write(f"\033[{self.drawn}A")
         rows = []
-        for state in SHOWN:
+        for state, label in SHOWN:
             n = counts[state]
             filled = 0 if not self.total else round(10 * n / self.total)
             bar = "#" * filled + "." * (10 - filled)
-            rows.append(f"  {state:<10} {bar} {n:>6}/{self.total}")
-        rows[-1] += f"   {export.human(self.bytes_sent)} sent"
+            rows.append(f"  {label:<10} {bar} {n:>6}/{self.total}")
+        rows[-1] += f"   {export.human(self.bytes_out)} written"
         if failed:
             rows.append(f"  {'failed':<10} {'':<10} {failed:>6}")
         rows.append(f"  now: {self.note[:70]}")
@@ -259,30 +229,33 @@ def run(args) -> int:
         return 2
 
     root = Path(os.path.commonpath(sources)) if len(sources) > 1 else Path(sources[0]).parent
-    work = args.work.resolve()
-    staged_dir, out_dir = work / "in", work / "out"
-    ledger = Ledger(work / "ledger.json")
+    out_dir = args.output.resolve()
+    # Staging is transient and budget-capped; the output is the deliverable and
+    # grows without limit. Keeping them apart is what lets the budget mean
+    # something. The ledger lives with the output, so wiping the staging area
+    # costs nothing but the files currently in flight.
+    staged_dir = (args.work or out_dir / ".staging").resolve()
+    ledger = Ledger(out_dir / ".ledger.json")
 
     wanted = manifest.load(args.manifest)
-    print(f"{len(sources)} file(s); {len(wanted)} branches enabled; "
-          f"format {args.format}; work {work}")
-    print(f"prestage-ahead {args.prestage_ahead}, "
-          f"scratch budget {args.scratch_budget} GB, ship -> {args.ship or '(nowhere)'}")
+    print(f"{len(sources)} file(s); {len(wanted)} branches enabled; format {args.format}")
+    print(f"output  {out_dir}")
+    print(f"staging {staged_dir}  (prestage-ahead {args.prestage_ahead}, "
+          f"budget {args.scratch_budget} GB)")
 
     if args.dry_run:
-        print("\nDry run. Would stage, convert and ship:")
+        print("\nDry run. Would stage and convert:")
         for src in sources[:10]:
             rel = Path(src).relative_to(root)
             dst = (out_dir / rel).with_suffix(export.formats_suffix(args.format))
-            sub = "" if str(rel.parent) == "." else f"{rel.parent}/"
-            print(f"  {src}\n      -> {dst}"
-                  f"\n      -> {args.ship or '(no ship target)'}/{sub}{dst.name}")
+            print(f"  {src}\n      -> {dst}")
         if len(sources) > 10:
             print(f"  ... and {len(sources) - 10} more")
         print("\nNo tape requests issued, nothing written.")
         return 0
 
-    work.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    staged_dir.mkdir(parents=True, exist_ok=True)
     if args.retry_failed:
         stuck = ledger.in_state("failed")
         for src in stuck:
@@ -336,7 +309,7 @@ def run(args) -> int:
             # 3. fetch, if there is room. The budget gates fetching only:
             #    requests keep going out regardless.
             online = ledger.in_state("online")
-            used = scratch_bytes(work) if online else 0
+            used = scratch_bytes(staged_dir) if online else 0
             staged_now = len(ledger.in_state("fetched"))
             # Under budget, or nothing staged at all: a budget smaller than a
             # single file must still make progress rather than deadlock.
@@ -373,7 +346,8 @@ def run(args) -> int:
                 dst = export.output_for(local, staged_dir, out_dir, args.format)
                 result = export.convert(local, dst, convert_args)
                 if result["ok"]:
-                    ledger.set(src, "converted", events=result.get("events"),
+                    progress.bytes_out += dst.stat().st_size
+                    ledger.set(src, "done", events=result.get("events"),
                                out_bytes=dst.stat().st_size)
                     if result.get("unlisted"):
                         progress.line(f"  note {rel}: {len(result['unlisted'])} branch(es) "
@@ -382,27 +356,6 @@ def run(args) -> int:
                     ledger.set(src, "failed", error=result["error"])
                     progress.line(f"  FAILED convert {rel}: {result['error']}")
                 local.unlink(missing_ok=True)  # only ever inside our own scratch
-                worked = True
-
-            # 5. ship
-            for src in ledger.in_state("converted")[:1]:
-                rel = Path(src).relative_to(root)
-                dst = (out_dir / rel).with_suffix(export.formats_suffix(args.format))
-                if not args.ship:
-                    ledger.set(src, "done")
-                    worked = True
-                    break
-                progress.note = f"shipping {dst.name}"
-                progress.draw(ledger)
-                ok, err = ship(dst, rel, args.ship)
-                if ok:
-                    progress.bytes_sent += dst.stat().st_size
-                    ledger.set(src, "done")
-                    if not args.keep_local:
-                        dst.unlink(missing_ok=True)
-                else:
-                    ledger.set(src, "failed", error=err)
-                    progress.line(f"  FAILED ship {rel}: {err}")
                 worked = True
 
             since_save += 1
@@ -425,7 +378,7 @@ def run(args) -> int:
     progress.line("")
     print(f"{'-' * 60}")
     print(f"done {ledger.reached('done')}, failed {len(failed)}, "
-          f"{export.human(progress.bytes_sent)} shipped")
+          f"{export.human(progress.bytes_out)} written to {out_dir}")
     for src in failed[:20]:
         print(f"  {src}\n      {ledger.records[src].get('error', '')}")
     if len(failed) > 20:
@@ -438,19 +391,22 @@ def parse_args(argv=None):
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     p.add_argument("files", type=Path, help="text file of /pnfs paths, one per line")
-    p.add_argument("--work", type=Path, required=True,
-                   help="scratch directory for staged inputs, outputs and the ledger")
-    p.add_argument("--ship", metavar="DEST",
-                   help="rsync destination, e.g. me@host:/archive/minos/ "
-                        "(a local path also works, for testing)")
+    p.add_argument("output", type=Path,
+                   help="where the converted files go, e.g. "
+                        "/exp/minos/data/users/$USER/archive")
+    p.add_argument("--work", type=Path, default=None, metavar="DIR",
+                   help="staging area for files pulled off tape "
+                        "(default: <output>/.staging). Point it at local scratch "
+                        "if the output area is slow or tight")
     p.add_argument("-f", "--format", choices=("hdf5", "root"), default="hdf5")
     p.add_argument("--manifest", type=Path, default=manifest.DEFAULT_MANIFEST)
     p.add_argument("--prestage-ahead", type=int, default=500, metavar="N",
                    help="prestage requests kept in flight (default %(default)s). "
                         "The tape-efficiency knob: costs no local disk")
     p.add_argument("--scratch-budget", type=int, default=300, metavar="GB",
-                   help="cap on the work directory (default %(default)s). "
-                        "Gates fetching only, never prestaging")
+                   help="cap on the staging area (default %(default)s). "
+                        "Gates fetching only, never prestaging. Does not limit "
+                        "the output, which grows freely")
     p.add_argument("--poll-batch", type=int, default=100, metavar="N",
                    help="requests checked for arrival per pass (default %(default)s)")
     p.add_argument("--poll-interval", type=float, default=30.0, metavar="S",
@@ -464,8 +420,6 @@ def parse_args(argv=None):
     p.add_argument("--retry-failed", action="store_true",
                    help="reset previously failed files to pending and try again. "
                         "Tape and network failures are often transient")
-    p.add_argument("--keep-local", action="store_true",
-                   help="keep converted files after shipping them")
     p.add_argument("--no-check", action="store_true",
                    help="skip the checks on dropped branches")
     p.add_argument("--check-events", type=int, default=5000)

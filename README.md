@@ -9,9 +9,11 @@ vertex. MINOS has finished, so anything not archived is gone for good; where
 a branch is a borderline call, it is kept.
 
 Two entry points. [`export.py`](export.py) converts files already on local
-disk. [`pipeline.py`](pipeline.py) runs at Fermilab: stages from tape,
-converts on the spot, and ships only the output to UCL — the SNTP files are
-what is big, and the conversion is what makes them small.
+disk. [`pipeline.py`](pipeline.py) runs at Fermilab: stages from tape and
+converts next to it, writing the results into your MINOS data area. Moving
+them onward is a separate bulk transfer — the conversion is what makes the
+files small (an SNTP data file comes out around 3% of its input), so there
+is no reason to move the big version anywhere.
 
 ## Quickstart on a gpvm
 
@@ -27,33 +29,41 @@ python3 -m venv .venv
 find /pnfs/fnal.gov/usr/minos/reco_far/elm7/sntp_data/2016-06 \
      -name '*.sntp.elm7.0.root' > files.txt
 
-# Check the plan and that ssh to UCL works, before touching tape.
-ssh me@ucl-host true && echo "ssh ok"
-.venv/bin/python pipeline.py files.txt --work $PWD/work \
-    --ship me@ucl-host:/archive/minos/ --dry-run
+# Check the plan before touching tape.
+ARCHIVE=/exp/minos/data/users/$USER/archive
+.venv/bin/python pipeline.py files.txt $ARCHIVE --dry-run
 
 # Run it. This takes hours to days, so run it detached.
 tmux new -s minos
-.venv/bin/python pipeline.py files.txt --work $PWD/work \
-    --ship me@ucl-host:/archive/minos/
+.venv/bin/python pipeline.py files.txt $ARCHIVE
 ```
 
-**If it stops, rerun the same command** — progress is in a ledger under
-`--work`, so it resumes and re-sends nothing. Add `--retry-failed` after a
-tape or network wobble to requeue whatever failed.
+**If it stops, rerun the same command** — progress is in a ledger beside the
+output, so it resumes and reconverts nothing. Add `--retry-failed` to requeue
+whatever failed; tape errors are often transient. The ledger sits with the
+output rather than the staging area, so wiping scratch costs nothing but the
+files in flight.
 
-A run prints four counters (requested, fetched, converted, shipped), live on
-a terminal and as plain lines in a log.
+A run prints three counters (staged, fetched, converted), live on a terminal
+and as plain lines in a log.
+
+**Getting it to UCL** is a separate step, once conversion is done and
+verified: Globus, or an rsync pull initiated from the far end. Keeping it
+separate means a days-long tape job does not depend on the network, and no
+credentials sit on a shared machine.
 
 ### The two settings that matter
 
 | | |
 |--|--|
 | `--prestage-ahead N` | prestage requests in flight, default 500. **This is the tape knob.** With many outstanding, dCache orders them by tape volume and mounts each tape once; one at a time sends the robot back to the same tape repeatedly. Costs no local disk, so be generous |
-| `--scratch-budget GB` | cap on the work directory, default 300. Gates *fetching* only, never staging. Lower it if the work area is small — requests can stay far ahead of fetches |
+| `--scratch-budget GB` | cap on the *staging* area, default 300. Gates fetching only, never staging requests, and does not limit the output. Lower it if scratch is tight — requests can stay far ahead of fetches |
 
-Others: `-f {hdf5,root}`, `--max-events N` (testing), `--keep-local`,
-`--no-check`, `--stage-timeout H`, `--dccp CMD`, `--plain`, `--dry-run`.
+Staged files go to `<output>/.staging` unless `--work` points elsewhere;
+put it on local scratch if the data area is slow or tight.
+
+Others: `-f {hdf5,root}`, `--max-events N` (testing), `--no-check`,
+`--stage-timeout H`, `--dccp CMD`, `--plain`, `--dry-run`.
 
 ## Converting files already on disk
 
@@ -159,7 +169,7 @@ in [`export.py`](export.py).
 
 | | |
 |--|--|
-| [`pipeline.py`](pipeline.py) | stage from tape at Fermilab, convert, ship to UCL |
+| [`pipeline.py`](pipeline.py) | stage from tape at Fermilab and convert, on the spot |
 | [`export.py`](export.py) | convert files already on local disk |
 | [`branches.txt`](branches.txt) | the manifest — what is archived, and why not |
 | [`BRANCHES.md`](BRANCHES.md) | all 755 branches explained |
