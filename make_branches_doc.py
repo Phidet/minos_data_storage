@@ -156,15 +156,17 @@ def group(name: str, blurb: str, fields: dict[str, str]) -> None:
     GROUPS.append((name, blurb, fields))
 
 
-group("header", """Run, subrun and snarl identifiers, plus ROOT and job
-bookkeeping. Only the four identifiers are archived.""", {
+group("header", """Run, subrun and snarl identifiers, what the file is, and
+ROOT and job bookkeeping. Archived: the three identifiers, plus the detector,
+the data-or-MC flag and the timestamp — an output file separated from its
+name would otherwise have no record of what it holds.""", {
     "fUniqueID": "ROOT's `TObject` identifier. Internal to ROOT.",
     "fBits": "ROOT's `TObject` status bits. Internal to ROOT.",
     "fName": "ROOT object name.",
     "fTitle": "ROOT object title.",
-    "fHeader.fVldContext.fDetector": "Which detector: Near, Far or CalDet. Constant within a file.",
-    "fHeader.fVldContext.fSimFlag": "Data, Monte Carlo, or a reroot/daq variant. Constant within a file.",
-    "fHeader.fVldContext.fTimeStamp.fSec": "Validity timestamp, whole seconds. Duplicated by the DAQ timing branches.",
+    "fHeader.fVldContext.fDetector": "Which detector: `1` Near, `2` Far, `4` CalDet. Constant within a file, and archived for exactly that reason — it is the file's own statement of what it is, and an output that has been separated from its filename has no other record of it.",
+    "fHeader.fVldContext.fSimFlag": "`1` real data, `2` DAQ fake data, `4` Monte Carlo, `8` reroot. The definitive data-or-simulation flag: without it the two are distinguishable only by noticing that the `mc.*` columns are empty.",
+    "fHeader.fVldContext.fTimeStamp.fSec": "Validity timestamp, whole seconds. Previously dropped as duplicating the DAQ timing branches — true for real data, but false for Monte Carlo, where `dataquality` and `timestatus` are unset and this is the **only** time record in the file.",
     "fHeader.fVldContext.fTimeStamp.fNanoSec": "The nanosecond part of the same timestamp.",
     "fHeader.fRun": "DAQ run number.",
     "fHeader.fSubRun": "DAQ subrun number.",
@@ -325,15 +327,16 @@ nothing else records them.""", {
 })
 
 group("mchdr", """Which generator produced the file, and on what machine.
-Job provenance rather than event data, and constant within a file.""", {
+Mostly job provenance, and constant within a file — but the codename names
+the MC release, which is recorded nowhere else, so that one is archived.""", {
     "error": "Generator error code.",
     "nmc": "Interaction records in the file.",
     "nstdhep": "Truth particle records in the file.",
     "ndigihit": "Per-digit truth records in the file.",
     "geninfo.time.fSec": "When the generator ran, whole seconds.",
     "geninfo.time.fNanoSec": "The nanosecond part.",
-    "geninfo.codename": "Generator codename.",
-    "geninfo.hostname": "Machine it ran on.",
+    "geninfo.codename": "The MC generation release that produced the file, e.g. `daikon_07` — a value from the vegetable-named `EDataMCRelease` series, orthogonal to the tree-named reconstruction release in the filename. Nothing else in the file records it, and a filename is not a durable place to keep it.",
+    "geninfo.hostname": "Machine the generator ran on. Job trivia, unlike the codename.",
 })
 
 group("photon", """Counters from the optical simulation: how much light was

@@ -10,7 +10,7 @@
 # new simulations are coming, so anything dropped here is gone for good;
 # prefer keeping when unsure.
 #
-# 166 of 755 branches enabled by default.
+# 171 of 755 branches enabled by default.
 #
 # See BRANCHES.md for what each branch means and why the excluded ones are
 # excluded. If a file turns up carrying a branch this list does not mention,
@@ -18,16 +18,17 @@
 
 # ────────────────────────────────────────────────────────────────────
 # header — run/subrun/snarl identifiers
-# Only the four identifiers below are kept; the rest is ROOT and job bookkeeping.
+# Kept: the run/subrun/snarl identifiers, plus what the file IS -- detector,
+# data-or-MC, and the timestamp. The rest is ROOT and job bookkeeping.
 # ────────────────────────────────────────────────────────────────────
 #NtpStRecord/RecRecordImp<RecCandHeader>/RecRecord/TNamed/TObject/fUniqueID
 #NtpStRecord/RecRecordImp<RecCandHeader>/RecRecord/TNamed/TObject/fBits
 #NtpStRecord/RecRecordImp<RecCandHeader>/RecRecord/TNamed/fName
 #NtpStRecord/RecRecordImp<RecCandHeader>/RecRecord/TNamed/fTitle
-#NtpStRecord/RecRecordImp<RecCandHeader>/fHeader.RecPhysicsHeader/fHeader.RecDataHeader/fHeader.RecHeader/fHeader.fVldContext.fDetector
-#NtpStRecord/RecRecordImp<RecCandHeader>/fHeader.RecPhysicsHeader/fHeader.RecDataHeader/fHeader.RecHeader/fHeader.fVldContext.fSimFlag
-#NtpStRecord/RecRecordImp<RecCandHeader>/fHeader.RecPhysicsHeader/fHeader.RecDataHeader/fHeader.RecHeader/fHeader.fVldContext.fTimeStamp.fSec
-#NtpStRecord/RecRecordImp<RecCandHeader>/fHeader.RecPhysicsHeader/fHeader.RecDataHeader/fHeader.RecHeader/fHeader.fVldContext.fTimeStamp.fNanoSec
+NtpStRecord/RecRecordImp<RecCandHeader>/fHeader.RecPhysicsHeader/fHeader.RecDataHeader/fHeader.RecHeader/fHeader.fVldContext.fDetector    # 1=Near 2=Far 4=CalDet; what this file is
+NtpStRecord/RecRecordImp<RecCandHeader>/fHeader.RecPhysicsHeader/fHeader.RecDataHeader/fHeader.RecHeader/fHeader.fVldContext.fSimFlag    # 1=data 4=MC 8=reroot; data or simulation
+NtpStRecord/RecRecordImp<RecCandHeader>/fHeader.RecPhysicsHeader/fHeader.RecDataHeader/fHeader.RecHeader/fHeader.fVldContext.fTimeStamp.fSec    # the only timestamp in an MC file; DAQ timing is unset there
+NtpStRecord/RecRecordImp<RecCandHeader>/fHeader.RecPhysicsHeader/fHeader.RecDataHeader/fHeader.RecHeader/fHeader.fVldContext.fTimeStamp.fNanoSec    # nanosecond part of the same
 NtpStRecord/RecRecordImp<RecCandHeader>/fHeader.RecPhysicsHeader/fHeader.RecDataHeader/fHeader.fRun    # DAQ run number
 NtpStRecord/RecRecordImp<RecCandHeader>/fHeader.RecPhysicsHeader/fHeader.RecDataHeader/fHeader.fSubRun    # DAQ subrun number
 #NtpStRecord/RecRecordImp<RecCandHeader>/fHeader.RecPhysicsHeader/fHeader.RecDataHeader/fHeader.fRunType
@@ -183,7 +184,8 @@ NtpStRecord/dataquality/dataquality.dataqualityword
 
 # ────────────────────────────────────────────────────────────────────
 # mchdr — generator provenance
-# Codename, host and timestamp of the generator job.
+# Only the codename is kept: it names the MC release (e.g. daikon_07) and
+# nothing else in the file records it. Host and job timestamp are dropped.
 # ────────────────────────────────────────────────────────────────────
 #NtpStRecord/mchdr/mchdr.error
 #NtpStRecord/mchdr/mchdr.nmc
@@ -191,7 +193,7 @@ NtpStRecord/dataquality/dataquality.dataqualityword
 #NtpStRecord/mchdr/mchdr.ndigihit
 #NtpStRecord/mchdr/mchdr.geninfo.time.fSec
 #NtpStRecord/mchdr/mchdr.geninfo.time.fNanoSec
-#NtpStRecord/mchdr/mchdr.geninfo.codename
+NtpStRecord/mchdr/mchdr.geninfo.codename    # MC generation release, e.g. daikon_07; recorded nowhere else
 #NtpStRecord/mchdr/mchdr.geninfo.hostname
 
 # ────────────────────────────────────────────────────────────────────

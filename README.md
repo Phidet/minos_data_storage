@@ -73,7 +73,7 @@ NtpStRecord/stp/stp.planeview     # fixed by plane (2=U, 3=V)
 ```
 
 **Changing what the archive contains is an edit to that file, not a code
-change.** 166 of 755 branches are enabled by default. If a file turns up
+change.** 171 of 755 branches are enabled by default. If a file turns up
 carrying a branch the manifest does not mention, `export.py` names it and
 carries on — add it here to archive it.
 
@@ -97,7 +97,7 @@ edit without the matching doc is caught on push.
 
 Both hold one column per enabled branch, and round-trip every one exactly —
 dtype, shape and values — checked against the source rather than assumed. On
-the test file (119,205 events, 166 branches) 2.0 GB of SNTP becomes 578 MB
+the test file (119,205 events, 171 branches) 2.0 GB of SNTP becomes 578 MB
 of HDF5 or 577 MB of ROOT, so the choice is about what will read them rather
 than about size.
 
@@ -130,6 +130,11 @@ Column names drop the `NtpStRecord/<group>/` prefix, so `stp.plane` rather
 than the full key. Every file carries its provenance: source path and size,
 event and branch counts, and when it was written.
 
+The output also says what it *is*, without reference to its filename:
+`fHeader.fVldContext.fDetector` (`1` Near, `2` Far), `.fSimFlag` (`1` data,
+`4` Monte Carlo) and, for simulation, `mchdr.geninfo.codename` — the MC
+release such as `daikon_07`. A filename is not a durable record.
+
 ## Behaviour worth knowing
 
 **One process per file.** A single file needs roughly 1.2 GB resident, and
@@ -148,10 +153,12 @@ the end with the tail of their error, and the exit status is non-zero.
 suffix, so a careless output directory would otherwise overwrite the source
 — and with `--overwrite` it did, once. Two guards now refuse it.
 
-**Real data vs simulation.** The default set includes `mc.*`. Real-data
-files carry those branches zero-filled, so they convert without complaint.
-If a branch is genuinely missing the file is reported as failed, naming the
-branch, rather than guessing.
+**Real data vs simulation.** The default set includes `mc.*`. `NtpStRecord`
+declares those arrays whatever the file holds, so a real-data file should
+carry the branches empty rather than absent — that is read off the class
+definition, not yet confirmed against a data file. If a branch is genuinely
+missing the file is reported as failed, naming the branch, rather than
+guessing.
 
 **A branch the manifest has never heard of is reported, not ignored.** The
 checks above run manifest-to-file; this is the other direction. A file whose

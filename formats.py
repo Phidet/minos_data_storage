@@ -38,7 +38,18 @@ def _write_h5_column(group, name: str, array, compression: dict) -> None:
     than as a flat run.
     """
     if array.ndim == 1:
-        group.create_dataset(name=name, data=np.asarray(array), **compression)
+        values = np.asarray(array)
+        if values.dtype.kind == "U":
+            # Text, e.g. the generator codename. Encoded to fixed-width bytes
+            # rather than stored as HDF5 variable-length strings: vlen lives
+            # in the global heap and so escapes compression, exactly as it
+            # does for numeric vlen. Fixed-width bytes compress normally.
+            dataset = group.create_dataset(
+                name=name, data=np.char.encode(values, "utf-8"), **compression
+            )
+            dataset.attrs["text"] = True
+            return
+        group.create_dataset(name=name, data=values, **compression)
         return
 
     counts = np.asarray(ak.num(array, axis=1), dtype=np.int64)
@@ -71,6 +82,8 @@ def _write_h5_column(group, name: str, array, compression: dict) -> None:
 def _read_h5_column(node):
     """Inverse of `_write_h5_column`."""
     if not isinstance(node, h5py.Group):
+        if node.attrs.get("text"):
+            return np.char.decode(node[:], "utf-8")
         return node[:]
 
     values = node["values"][:]
