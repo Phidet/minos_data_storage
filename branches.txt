@@ -10,7 +10,7 @@
 # new simulations are coming, so anything dropped here is gone for good;
 # prefer keeping when unsure.
 #
-# 171 of 755 branches enabled by default.
+# 177 of 755 branches enabled by default.
 #
 # See BRANCHES.md for what each branch means and why the excluded ones are
 # excluded. If a file turns up carrying a branch this list does not mention,
@@ -271,14 +271,16 @@ NtpStRecord/vetostp/vetostp.timeraw[2]
 
 # ────────────────────────────────────────────────────────────────────
 # deadchips — dead electronics map
-# Would be worth keeping for efficiency work, but empty in every file checked.
+# Which front-end channels were dead for this snarl. Empty in MC, but live in
+# real data (mean 3.4 entries/event, varying per event), so it is a genuine
+# per-snarl measurement that exists nowhere else. Kept for both.
 # ────────────────────────────────────────────────────────────────────
-#NtpStRecord/deadchips/deadchips.channelid
-#NtpStRecord/deadchips/deadchips.plane0
-#NtpStRecord/deadchips/deadchips.plane1
-#NtpStRecord/deadchips/deadchips.shield
-#NtpStRecord/deadchips/deadchips.errorcode
-#NtpStRecord/deadchips/deadchips.status
+NtpStRecord/deadchips/deadchips.channelid
+NtpStRecord/deadchips/deadchips.plane0
+NtpStRecord/deadchips/deadchips.plane1
+NtpStRecord/deadchips/deadchips.shield
+NtpStRecord/deadchips/deadchips.errorcode
+NtpStRecord/deadchips/deadchips.status
 
 # ────────────────────────────────────────────────────────────────────
 # stp — digitised strip hits

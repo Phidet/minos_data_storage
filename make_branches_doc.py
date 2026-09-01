@@ -273,7 +273,7 @@ fired. A reconstruction step, and its failure flags describe that step.""", {
 group("detstatus", """Magnet and high-voltage state. Needed to interpret
 momentum and charge sign, so all of it is archived.""", {
     "coilstatus": "**Always `0`.** The filler sets it unconditionally and comments that the variable is deprecated; `dcscoilstatus` is the one that carries the real state. Archived anyway, since it costs nothing and an empty field is itself a fact about the file.",
-    "dcscoilstatus": "Magnet coil state from the slow-control system: OK or bad, with a reverse-polarity bit OR'd in. At the Far Detector the two supermodules must agree, or it is set to unknown.",
+    "dcscoilstatus": "Magnet coil state from the slow-control system: the code sets OK or bad with a reverse-polarity bit OR'd in, and unknown when the two Far Detector supermodules disagree. In practice it reads `0` in every file checked, data included, so like `coilstatus` it carries nothing. The coil currents and `dbuhvstatus` are the fields that actually do.",
     "coilcurrent1": "Coil current, which sets the field and hence the momentum and charge-sign measurement [A]. Supermodule 1 at the Far Detector, the single coil at the Near. `-999.9` when unknown.",
     "coilcurrent2": "Supermodule 2's coil current [A]. Far Detector only; `-999.9` otherwise.",
     "dbuhvstatus": "Photomultiplier high-voltage status. `-1` when unknown.",
@@ -281,8 +281,11 @@ momentum and charge sign, so all of it is archived.""", {
     "coldchips2": "The same for supermodule 2.",
 })
 
-group("timestatus", """Absolute timing for the snarl. Archived: without it
-a snarl cannot be placed on the beam clock.""", {
+group("timestatus", """Absolute timing for the snarl. **Every field is `-1`
+in all three files checked, real data included** — only `crate_t0_ns` even
+varies, between `-1` and `0`. Kept anyway, because six small integers cost
+nothing and a file where they are filled may yet turn up; but nothing should
+be built on them without checking first.""", {
     "sgate_10mhz": "Spill gate counted on the 10 MHz clock.",
     "sgate_53mhz": "Spill gate counted on the 53 MHz clock.",
     "rollover_53mhz": "How many times the 53 MHz counter has wrapped.",
@@ -301,7 +304,7 @@ it is archived: it describes the conditions the data was taken under, and
 nothing else records them.""", {
     "trigsource": "What triggered the readout, as a bitmask.",
     "trigtime": "Trigger time.",
-    "errorcode": "DAQ error code for the snarl.",
+    "errorcode": "DAQ error code for the snarl. `0` throughout both data files — a real measurement of \"no error\", not the `-1` that means unset in Monte Carlo.",
     "cratemask": "How many readout crates were active; 16 is a full Far Detector readout.",
     "pretrigdigits": "Digits recorded before the trigger.",
     "posttrigdigits": "Digits recorded after it.",
@@ -319,10 +322,10 @@ nothing else records them.""", {
     "liled": "Which LED within that box.",
     "lipulseheight": "Pulser amplitude setting.",
     "lipulsewidth": "Pulser width setting.",
-    "coldchips": "Front-end chips reading nothing.",
-    "hotchips": "Chips firing far above their expected rate.",
+    "coldchips": "Front-end chips reading nothing. `0` throughout both data files, meaning none, against `-1` (unset) in Monte Carlo.",
+    "hotchips": "Chips firing far above their expected rate. `0` in both data files, as above.",
     "busychips": "Chips saturated by readout load.",
-    "readouterrors": "Readout errors in the snarl.",
+    "readouterrors": "Readout errors in the snarl. `0` in both data files, as above.",
     "dataqualityword": "Packed overall data-quality flag for the snarl.",
 })
 
@@ -384,7 +387,11 @@ behaviour rather than the event's.""", {
 group("vetostp", """Raw hits in the veto shield — the scintillator blanket
 over the Far Detector used to tag entering cosmic-ray muons. A measurement,
 so it is archived; the summary keyed to reconstructed tracks (`vetohdr`,
-`vetoexp`) is not. Fields indexed `[2]` are one value per strip end.""", {
+`vetoexp`) is not. Fields indexed `[2]` are one value per strip end.
+
+In practice this is a data-only group: the shield is barely simulated, at
+0.36 rows per event in the Monte Carlo file against 200 (cosmic) and 613
+(spill) per event in the real data.""", {
     "index": "Position of the hit in its array. Row order already carries it.",
     "ndigit": "Digits on this shield strip.",
     "pln": "Shield plane.",
@@ -416,16 +423,18 @@ the shield's actual hits are kept in `vetostp`.""", {
     "stripdigit": "Index of the digit found, if any.",
 })
 
-group("deadchips", """Map of dead electronics channels. Genuinely useful for
-efficiency work, but **empty in every file checked**, so there is nothing to
-archive. `check_exclusions.py` refuses any file where that stops being
-true.""", {
+group("deadchips", """Which front-end channels were dead for this snarl.
+Empty in Monte Carlo, which is why it was originally excluded — but **live in
+real data**: a mean of 3.4 entries per event, and varying event to event (359
+distinct channel sets across 400 events), so it is a per-snarl measurement
+rather than a static per-run map. Exactly what efficiency work needs, and
+recorded nowhere else, so it is archived for both file types.""", {
     "channelid": "Identifier of the dead channel.",
     "plane0": "First plane the channel serves.",
     "plane1": "Last plane it serves.",
-    "shield": "Whether the channel belongs to the veto shield.",
-    "errorcode": "Why the channel was marked dead.",
-    "status": "Status flag for the channel.",
+    "shield": "Shield plane id for a veto-shield channel, `-1` for a channel in the main detector. Not a flag, despite the name.",
+    "errorcode": "Why the channel was marked dead. `0` throughout the data checked.",
+    "status": "Status flag for the channel. Constant `9` throughout the data checked. **???** — the encoding is not in the sources available here.",
 })
 
 group("stp", """Digitised strip hits: the detector's actual image of the

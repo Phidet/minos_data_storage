@@ -168,9 +168,18 @@ def _root_encode(array):
         return array, 0
     if array.ndim == 2:
         try:
-            return ak.to_numpy(array), 0  # regular: a fixed-width branch
+            regular = ak.to_numpy(array)
         except Exception:
             return array, 0  # genuinely jagged
+        if regular.shape[1] == 0:
+            # Every list is empty, which makes the column *technically*
+            # regular -- of width zero. Declaring that gives a flat scalar
+            # branch written with no values, which cannot be read back at
+            # all. A data file has 99 such columns (the whole mc/stdhep/
+            # thstp side is empty), so this is the normal case there, not an
+            # edge one. Keep it jagged.
+            return array, 0
+        return regular, 0  # genuinely fixed-width
 
     widths = ak.flatten(ak.num(array, axis=2), axis=None)
     if len(widths) and len(np.unique(ak.to_numpy(widths))) > 1:
@@ -215,9 +224,16 @@ def write_root(path: Path, columns: dict, metadata: dict, compression="zlib") ->
     def branch_type(a):
         if not isinstance(a, np.ndarray):
             return ak.type(a)
+        if a.ndim == 1:
+            return a.dtype
+        if 0 in a.shape[1:]:
+            # A zero-width branch is not writable, and would read back as a
+            # scalar holding nothing. _root_encode keeps such columns jagged,
+            # so reaching here means something upstream changed.
+            raise ValueError(f"cannot declare a zero-width branch: shape {a.shape}")
         # a fixed-width column must declare its width, or `extend` refuses
         # to fill a scalar branch with (n, k) data
-        return a.dtype if a.ndim == 1 else np.dtype((a.dtype, a.shape[1:]))
+        return np.dtype((a.dtype, a.shape[1:]))
 
     types = {name: branch_type(a) for name, a in encoded.items()}
 

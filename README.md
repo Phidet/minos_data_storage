@@ -73,7 +73,7 @@ NtpStRecord/stp/stp.planeview     # fixed by plane (2=U, 3=V)
 ```
 
 **Changing what the archive contains is an edit to that file, not a code
-change.** 171 of 755 branches are enabled by default. If a file turns up
+change.** 177 of 755 branches are enabled by default. If a file turns up
 carrying a branch the manifest does not mention, `export.py` names it and
 carries on — add it here to archive it.
 
@@ -97,7 +97,7 @@ edit without the matching doc is caught on push.
 
 Both hold one column per enabled branch, and round-trip every one exactly —
 dtype, shape and values — checked against the source rather than assumed. On
-the test file (119,205 events, 171 branches) 2.0 GB of SNTP becomes 578 MB
+the MC test file (119,205 events, 177 branches) 2.0 GB of SNTP becomes 578 MB
 of HDF5 or 577 MB of ROOT, so the choice is about what will read them rather
 than about size.
 
@@ -195,12 +195,20 @@ the end with the tail of their error, and the exit status is non-zero.
 suffix, so a careless output directory would otherwise overwrite the source
 — and with `--overwrite` it did, once. Two guards now refuse it.
 
-**Real data vs simulation.** The default set includes `mc.*`. `NtpStRecord`
-declares those arrays whatever the file holds, so a real-data file should
-carry the branches empty rather than absent — that is read off the class
-definition, not yet confirmed against a data file. If a branch is genuinely
-missing the file is reported as failed, naming the branch, rather than
-guessing.
+**Real data vs simulation**, now measured rather than inferred, against two
+Elm7 Far Detector files. The branch set is **identical** to the Dogwood5 MC
+file — 755 leaves, nothing missing, nothing unlisted — so one manifest serves
+both. `NtpStRecord` declares the `mc`/`stdhep`/`thstp` arrays whatever the
+file holds, and a data file carries them present but empty: **99 of the 177
+archived columns are empty for data**. Both formats round-trip all 177
+exactly either way.
+
+Data compresses much harder, since those empty columns cost almost nothing:
+120.5 MB of spill SNTP becomes 3.9 MB (3.0%), against 28.7% for MC.
+
+The two file types are told apart by `fSimFlag` (`1` data, `4` MC) rather
+than by guessing from emptiness, and `check_exclusions.py` skips the
+MC-dependent assumptions on a file that has no MC instead of failing them.
 
 **A branch the manifest has never heard of is reported, not ignored.** The
 checks above run manifest-to-file; this is the other direction. A file whose

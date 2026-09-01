@@ -164,7 +164,7 @@ Magnet and high-voltage state. Needed to interpret momentum and charge sign, so 
 | | Branch | Meaning |
 |--|--------|---------|
 | ✓ | `detstatus.coilstatus` | **Always `0`.** The filler sets it unconditionally and comments that the variable is deprecated; `dcscoilstatus` is the one that carries the real state. Archived anyway, since it costs nothing and an empty field is itself a fact about the file. |
-| ✓ | `detstatus.dcscoilstatus` | Magnet coil state from the slow-control system: OK or bad, with a reverse-polarity bit OR'd in. At the Far Detector the two supermodules must agree, or it is set to unknown. |
+| ✓ | `detstatus.dcscoilstatus` | Magnet coil state from the slow-control system: the code sets OK or bad with a reverse-polarity bit OR'd in, and unknown when the two Far Detector supermodules disagree. In practice it reads `0` in every file checked, data included, so like `coilstatus` it carries nothing. The coil currents and `dbuhvstatus` are the fields that actually do. |
 | ✓ | `detstatus.coilcurrent1` | Coil current, which sets the field and hence the momentum and charge-sign measurement [A]. Supermodule 1 at the Far Detector, the single coil at the Near. `-999.9` when unknown. |
 | ✓ | `detstatus.coilcurrent2` | Supermodule 2's coil current [A]. Far Detector only; `-999.9` otherwise. |
 | ✓ | `detstatus.dbuhvstatus` | Photomultiplier high-voltage status. `-1` when unknown. |
@@ -173,7 +173,7 @@ Magnet and high-voltage state. Needed to interpret momentum and charge sign, so 
 
 ## `timestatus` — 6 of 6 archived
 
-Absolute timing for the snarl. Archived: without it a snarl cannot be placed on the beam clock.
+Absolute timing for the snarl. **Every field is `-1` in all three files checked, real data included** — only `crate_t0_ns` even varies, between `-1` and `0`. Kept anyway, because six small integers cost nothing and a file where they are filled may yet turn up; but nothing should be built on them without checking first.
 
 | | Branch | Meaning |
 |--|--------|---------|
@@ -200,7 +200,7 @@ Beam spill, trigger and DAQ state for the snarl, including the light-injection p
 |--|--------|---------|
 | ✓ | `dataquality.trigsource` | What triggered the readout, as a bitmask. |
 | ✓ | `dataquality.trigtime` | Trigger time. |
-| ✓ | `dataquality.errorcode` | DAQ error code for the snarl. |
+| ✓ | `dataquality.errorcode` | DAQ error code for the snarl. `0` throughout both data files — a real measurement of "no error", not the `-1` that means unset in Monte Carlo. |
 | ✓ | `dataquality.cratemask` | How many readout crates were active; 16 is a full Far Detector readout. |
 | ✓ | `dataquality.pretrigdigits` | Digits recorded before the trigger. |
 | ✓ | `dataquality.posttrigdigits` | Digits recorded after it. |
@@ -218,10 +218,10 @@ Beam spill, trigger and DAQ state for the snarl, including the light-injection p
 | ✓ | `dataquality.liled` | Which LED within that box. |
 | ✓ | `dataquality.lipulseheight` | Pulser amplitude setting. |
 | ✓ | `dataquality.lipulsewidth` | Pulser width setting. |
-| ✓ | `dataquality.coldchips` | Front-end chips reading nothing. |
-| ✓ | `dataquality.hotchips` | Chips firing far above their expected rate. |
+| ✓ | `dataquality.coldchips` | Front-end chips reading nothing. `0` throughout both data files, meaning none, against `-1` (unset) in Monte Carlo. |
+| ✓ | `dataquality.hotchips` | Chips firing far above their expected rate. `0` in both data files, as above. |
 | ✓ | `dataquality.busychips` | Chips saturated by readout load. |
-| ✓ | `dataquality.readouterrors` | Readout errors in the snarl. |
+| ✓ | `dataquality.readouterrors` | Readout errors in the snarl. `0` in both data files, as above. |
 | ✓ | `dataquality.dataqualityword` | Packed overall data-quality flag for the snarl. |
 
 ## `mchdr` — 1 of 8 archived
@@ -285,7 +285,7 @@ Counters from the electronics simulation: how many digits survived each stage of
 
 ## `vetostp` — 13 of 14 archived
 
-Raw hits in the veto shield — the scintillator blanket over the Far Detector used to tag entering cosmic-ray muons. A measurement, so it is archived; the summary keyed to reconstructed tracks (`vetohdr`, `vetoexp`) is not. Fields indexed `[2]` are one value per strip end.
+Raw hits in the veto shield — the scintillator blanket over the Far Detector used to tag entering cosmic-ray muons. A measurement, so it is archived; the summary keyed to reconstructed tracks (`vetohdr`, `vetoexp`) is not. Fields indexed `[2]` are one value per strip end. In practice this is a data-only group: the shield is barely simulated, at 0.36 rows per event in the Monte Carlo file against 200 (cosmic) and 613 (spill) per event in the real data.
 
 | | Branch | Meaning |
 |--|--------|---------|
@@ -321,18 +321,18 @@ Where a *reconstructed track* was expected to cross the shield — a projection,
 | ✗ | `vetoexp.stripdigit` | Index of the digit found, if any. |
 | ✗ | `vetoexp.index` | Position of the record in its array. |
 
-## `deadchips` — 0 of 6 archived
+## `deadchips` — 6 of 6 archived
 
-Map of dead electronics channels. Genuinely useful for efficiency work, but **empty in every file checked**, so there is nothing to archive. `check_exclusions.py` refuses any file where that stops being true.
+Which front-end channels were dead for this snarl. Empty in Monte Carlo, which is why it was originally excluded — but **live in real data**: a mean of 3.4 entries per event, and varying event to event (359 distinct channel sets across 400 events), so it is a per-snarl measurement rather than a static per-run map. Exactly what efficiency work needs, and recorded nowhere else, so it is archived for both file types.
 
 | | Branch | Meaning |
 |--|--------|---------|
-| ✗ | `deadchips.channelid` | Identifier of the dead channel. |
-| ✗ | `deadchips.plane0` | First plane the channel serves. |
-| ✗ | `deadchips.plane1` | Last plane it serves. |
-| ✗ | `deadchips.shield` | Whether the channel belongs to the veto shield. |
-| ✗ | `deadchips.errorcode` | Why the channel was marked dead. |
-| ✗ | `deadchips.status` | Status flag for the channel. |
+| ✓ | `deadchips.channelid` | Identifier of the dead channel. |
+| ✓ | `deadchips.plane0` | First plane the channel serves. |
+| ✓ | `deadchips.plane1` | Last plane it serves. |
+| ✓ | `deadchips.shield` | Shield plane id for a veto-shield channel, `-1` for a channel in the main detector. Not a flag, despite the name. |
+| ✓ | `deadchips.errorcode` | Why the channel was marked dead. `0` throughout the data checked. |
+| ✓ | `deadchips.status` | Status flag for the channel. Constant `9` throughout the data checked. **???** — the encoding is not in the sources available here. |
 
 ## `stp` — 11 of 20 archived
 

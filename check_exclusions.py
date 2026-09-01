@@ -245,19 +245,38 @@ def check_lepton_p4(tree, n, field: str, lepton_pdg: int, label: str) -> str:
 # The assumptions themselves. One line per excluded branch.
 # --------------------------------------------------------------------------
 
+# The third element says the rule compares against the MC record. A real-data
+# file has no MC at all, so those claims do not apply there -- they are
+# reported as skipped rather than passed. A vacuous pass is worse than an
+# honest skip: `check_a_z` would otherwise "decode" every event from a nucleus
+# row that is not there, via its hydrogen fallback.
 ASSUMPTIONS = [
-    ("digihit",     lambda t, n: check_empty(t, n, "NtpStRecord/digihit/digihit.", "digihit")),
-    ("deadchips",   lambda t, n: check_empty(t, n, "NtpStRecord/deadchips/deadchips.", "deadchips")),
-    ("mc.iboson",   lambda t, n: check_constant(t, n, "iboson", "mc.iboson")),
-    ("stp.z",       lambda t, n: check_function_of(t, n, "z", "plane", "stp.z")),
-    ("mc.p4neu",    lambda t, n: check_p4neu(t, n, "mc.p4neu[4]")),
-    ("mc.vtx",      lambda t, n: check_vtx(t, n, "mc.vtxx/y/z")),
-    ("mc.a, mc.z",  lambda t, n: check_a_z(t, n, "mc.a, mc.z")),
-    ("mc.p4mu2",    lambda t, n: check_lepton_p4(t, n, "p4mu2[4]", 13, "mc.p4mu2[4]")),
-    ("mc.p4el1",    lambda t, n: check_lepton_p4(t, n, "p4el1[4]", 11, "mc.p4el1[4]")),
-    ("mc.p4el2",    lambda t, n: check_lepton_p4(t, n, "p4el2[4]", 11, "mc.p4el2[4]")),
-    ("mc.p4tau",    lambda t, n: check_lepton_p4(t, n, "p4tau[4]", 15, "mc.p4tau[4]")),
+    ("digihit",     lambda t, n: check_empty(t, n, "NtpStRecord/digihit/digihit.", "digihit"), False),
+    ("mc.iboson",   lambda t, n: check_constant(t, n, "iboson", "mc.iboson"), True),
+    ("stp.z",       lambda t, n: check_function_of(t, n, "z", "plane", "stp.z"), False),
+    ("mc.p4neu",    lambda t, n: check_p4neu(t, n, "mc.p4neu[4]"), True),
+    ("mc.vtx",      lambda t, n: check_vtx(t, n, "mc.vtxx/y/z"), True),
+    ("mc.a, mc.z",  lambda t, n: check_a_z(t, n, "mc.a, mc.z"), True),
+    ("mc.p4mu2",    lambda t, n: check_lepton_p4(t, n, "p4mu2[4]", 13, "mc.p4mu2[4]"), True),
+    ("mc.p4el1",    lambda t, n: check_lepton_p4(t, n, "p4el1[4]", 11, "mc.p4el1[4]"), True),
+    ("mc.p4el2",    lambda t, n: check_lepton_p4(t, n, "p4el2[4]", 11, "mc.p4el2[4]"), True),
+    ("mc.p4tau",    lambda t, n: check_lepton_p4(t, n, "p4tau[4]", 15, "mc.p4tau[4]"), True),
 ]
+
+
+def has_mc(tree, n) -> bool:
+    """Whether this file carries any Monte Carlo truth at all.
+
+    Real-data SNTP files declare the mc/stdhep/thstp arrays -- NtpStRecord
+    defines them unconditionally -- but leave them empty. Checked by looking
+    for particle rows rather than by trusting fSimFlag, so a file that is
+    mislabelled still gets treated according to what it actually holds.
+    """
+    try:
+        rows = ak.num(tree[PARTICLE + "IdHEP"].array(entry_stop=n), axis=1)
+        return bool(ak.sum(rows) > 0)
+    except Exception:
+        return True  # cannot tell: run the checks and let them speak
 
 
 def check_file(path, check_events: int | None = 5000, verbose: bool = False):
@@ -279,7 +298,14 @@ def check_file(path, check_events: int | None = 5000, verbose: bool = False):
             return [f"no {TREE!r} tree -- {exc!r}"]
 
         n = min(check_events, tree.num_entries) if check_events else None
-        for name, check in ASSUMPTIONS:
+        mc_present = has_mc(tree, n)
+        if verbose and not mc_present:
+            print("    --   no MC in this file; MC-dependent assumptions skipped")
+        for name, check, needs_mc in ASSUMPTIONS:
+            if needs_mc and not mc_present:
+                if verbose:
+                    print(f"    skip {name}: no MC record in this file")
+                continue
             try:
                 message = check(tree, n)
                 if verbose:
