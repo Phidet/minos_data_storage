@@ -135,6 +135,48 @@ The output also says what it *is*, without reference to its filename:
 `4` Monte Carlo) and, for simulation, `mchdr.geninfo.codename` — the MC
 release such as `daikon_07`. A filename is not a durable record.
 
+## Running at Fermilab: `pipeline.py`
+
+For the real dataset the inputs are on tape at Fermilab, and copying them to
+UCL first is the wrong way round — the SNTP files are what is big and the
+conversion is what makes them small. `pipeline.py` stages from tape,
+converts on the spot, and ships only the output:
+
+```bash
+python pipeline.py files.txt --work /scratch/me/minos \
+    --ship me@ucl-host:/archive/minos/
+```
+
+`files.txt` is a list of `/pnfs` paths, one per line. Each file moves
+through `pending → requested → online → fetched → converted → shipped →
+done`, and every step is recorded in a ledger under `--work`, so an
+interrupted run resumes where it stopped and never re-sends what already
+landed. `--retry-failed` puts previously failed files back in the queue,
+which is usually what you want after a tape or network wobble.
+
+**On tape, `--prestage-ahead` is the setting that matters.** It is how many
+prestage requests are lodged with dCache at once (default 500). With many
+outstanding, dCache can order them by tape volume and mount each tape once;
+requesting one file at a time is the worst pattern available, because it
+sends the robot back to the same tape repeatedly. Prestage requests cost no
+local disk, so this can be generous.
+
+`--scratch-budget` (default 300 GB) is a different thing: it caps the work
+directory, and gates *fetching* only. It should never be the binding
+constraint on staging. A budget smaller than one file still makes progress
+rather than deadlocking.
+
+A run prints four counters — requested, fetched, converted, shipped — as a
+live block on a terminal and as plain lines when redirected, so it is
+readable both in `tmux` and in a log file. `--dry-run` resolves the list and
+prints the plan without lodging a single tape request.
+
+**An unstaged dCache file reads back as the right size in zeros rather than
+failing.** That is not hypothetical: it is how two 600 MB files arrived here
+holding nothing at all. Every fetch is checked for the ROOT magic before it
+is accepted, and a file that never comes online is given up on after
+`--stage-timeout` hours rather than holding the run open forever.
+
 ## Behaviour worth knowing
 
 **One process per file.** A single file needs roughly 1.2 GB resident, and
@@ -195,5 +237,6 @@ checked: there is no claim to test.
 | [`BRANCHES.md`](BRANCHES.md) | all 755 branches, what each means, and whether it is archived |
 | [`make_branches_doc.py`](make_branches_doc.py) | regenerates BRANCHES.md from the manifest |
 | [`formats.py`](formats.py) | HDF5 and ROOT writers and readers |
-| [`export.py`](export.py) | the CLI |
+| [`export.py`](export.py) | the CLI, for files already on local disk |
+| [`pipeline.py`](pipeline.py) | stage from tape at Fermilab, convert, ship to UCL |
 | [`check_exclusions.py`](check_exclusions.py) | verifies the assumptions behind dropped branches |
