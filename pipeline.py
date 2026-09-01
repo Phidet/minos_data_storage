@@ -209,13 +209,27 @@ class Progress:
 # --------------------------------------------------------------------------
 
 
-def read_list(path: Path) -> list[str]:
-    out = []
+def read_inputs(path: Path, pattern: str) -> tuple[list[str], Path]:
+    """The files to convert, and the directory their tree is relative to.
+
+    Takes either a /pnfs directory -- listing it is metadata only and does
+    not touch tape -- or a text file of paths, one per line, for a curated
+    subset. Returns paths as strings because a list file may hold `dcap://`
+    URLs, which are not filesystem paths.
+    """
+    if path.is_dir():
+        found = sorted(str(p) for p in path.glob(pattern))
+        return found, path
+
+    lines = []
     for line in path.read_text().splitlines():
         line = line.split("#", 1)[0].strip()
         if line:
-            out.append(line)
-    return out
+            lines.append(line)
+    if not lines:
+        return [], path
+    root = Path(os.path.commonpath(lines)) if len(lines) > 1 else Path(lines[0]).parent
+    return lines, root
 
 
 def scratch_bytes(directory: Path) -> int:
@@ -223,12 +237,13 @@ def scratch_bytes(directory: Path) -> int:
 
 
 def run(args) -> int:
-    sources = read_list(args.files)
+    sources, root = read_inputs(args.files, args.pattern)
     if not sources:
-        print(f"No files listed in {args.files}", file=sys.stderr)
+        where = f"under {args.files} matching {args.pattern!r}" \
+            if args.files.is_dir() else f"listed in {args.files}"
+        print(f"No files {where}", file=sys.stderr)
         return 2
 
-    root = Path(os.path.commonpath(sources)) if len(sources) > 1 else Path(sources[0]).parent
     out_dir = args.output.resolve()
     # Staging is transient and budget-capped; the output is the deliverable and
     # grows without limit. Keeping them apart is what lets the budget mean
@@ -390,7 +405,10 @@ def parse_args(argv=None):
     p = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    p.add_argument("files", type=Path, help="text file of /pnfs paths, one per line")
+    p.add_argument("files", type=Path,
+                   help="a /pnfs directory, or a text file of paths one per line")
+    p.add_argument("--pattern", default="**/*.root", metavar="GLOB",
+                   help="which files to take from a directory (default %(default)s)")
     p.add_argument("output", type=Path,
                    help="where the converted files go, e.g. "
                         "/exp/minos/data/users/$USER/archive")
@@ -398,7 +416,8 @@ def parse_args(argv=None):
                    help="staging area for files pulled off tape "
                         "(default: <output>/.staging). Point it at local scratch "
                         "if the output area is slow or tight")
-    p.add_argument("-f", "--format", choices=("hdf5", "root"), default="hdf5")
+    p.add_argument("-f", "--format", choices=("root", "hdf5"), default="root",
+                   help="output format (default %(default)s)")
     p.add_argument("--manifest", type=Path, default=manifest.DEFAULT_MANIFEST)
     p.add_argument("--prestage-ahead", type=int, default=500, metavar="N",
                    help="prestage requests kept in flight (default %(default)s). "

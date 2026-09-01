@@ -20,22 +20,18 @@ is no reason to move the big version anywhere.
 ```bash
 git clone https://github.com/Phidet/minos_data_storage.git
 cd minos_data_storage
+./setup.sh                        # venv + the four packages it imports
+source .venv/bin/activate
 
-# Python 3.9+ with four packages -- 3.9 is what the gpvms have, and is enough.
-python3 -m venv .venv
-.venv/bin/pip install -q uproot awkward numpy h5py
-
-# The file list. Listing /pnfs is metadata only -- it does not touch tape.
-find /pnfs/fnal.gov/usr/minos/reco_far/elm7/sntp_data/2016-06 \
-     -name '*.sntp.elm7.0.root' > files.txt
-
-# Check the plan before touching tape.
 ARCHIVE=/exp/minos/data/users/$USER/archive
-.venv/bin/python pipeline.py files.txt $ARCHIVE --dry-run
+
+# Point it straight at a /pnfs directory. Listing one is metadata only --
+# it does not touch tape. A text file of paths works too, for a subset.
+python pipeline.py /pnfs/minos/reco_far/elm7/sntp_data/2016-06 $ARCHIVE --dry-run
 
 # Run it. This takes hours to days, so run it detached.
 tmux new -s minos
-.venv/bin/python pipeline.py files.txt $ARCHIVE
+python pipeline.py /pnfs/minos/reco_far/elm7/sntp_data/2016-06 $ARCHIVE
 ```
 
 **If it stops, rerun the same command** — progress is in a ledger beside the
@@ -62,24 +58,26 @@ credentials sit on a shared machine.
 Staged files go to `<output>/.staging` unless `--work` points elsewhere;
 put it on local scratch if the data area is slow or tight.
 
-Others: `-f {hdf5,root}`, `--max-events N` (testing), `--no-check`,
-`--stage-timeout H`, `--dccp CMD`, `--plain`, `--dry-run`.
+Others: `-f {root,hdf5}`, `--pattern GLOB`, `--max-events N` (testing),
+`--no-check`, `--stage-timeout H`, `--dccp CMD`, `--plain`, `--dry-run`.
 
 ## Converting files already on disk
 
 ```bash
-python export.py input.sntp.root out/          # one file
-python export.py /data/sntp /archive/hdf5      # a tree, mirrored
-python export.py /data/sntp /archive -f root   # ROOT instead of HDF5
+python export.py input.sntp.root out/           # one file
+python export.py /data/sntp /archive            # a tree, mirrored
+python export.py /data/sntp /archive -f hdf5    # HDF5 instead of ROOT
 ```
 
 Only the trailing `.root` is replaced, so
 `2010/run1/f21….sntp.dogwood5.0.root` becomes
-`2010/run1/f21….sntp.dogwood5.0.h5`.
+`2010/run1/f21….sntp.dogwood5.0.h5` — or keeps the `.root` suffix in the
+default ROOT format, which is why the output directory must not be the input
+directory. The tool refuses that rather than overwriting its own source.
 
 | Flag | |
 |------|--|
-| `-f, --format {hdf5,root}` | output format (default `hdf5`) |
+| `-f, --format {root,hdf5}` | output format (default `root`) |
 | `--pattern GLOB` | which files to pick up (default `**/*.root`) |
 | `--manifest FILE` | a manifest other than `branches.txt` |
 | `--max-events N` | keep only the first N events per file (testing) |
@@ -140,9 +138,10 @@ whatever Python is present; the round-trip suite was verified byte-identical
 on 3.9 (uproot 5.6, awkward 2.8, numpy 2.0) and on 3.10 (uproot 5.7, awkward
 2.13). CI checks both.
 
-**`dccp` paths.** `find` gives plain `/pnfs/...` paths, which work where
-`/pnfs` is mounted. If it is not, use the `dcap://fndca1.fnal.gov:24125/...`
-form in `files.txt` instead.
+**Two `/pnfs` namespaces.** The NFS mount on a gpvm is `/pnfs/minos/...`,
+which is what to point this at. The `dcap://` URL form uses a different
+prefix — `dcap://fndca1.fnal.gov:24125/pnfs/fnal.gov/usr/minos/...` — and is
+what you need if `/pnfs` is not mounted; a list file may hold either.
 
 **An unstaged dCache file reads back as the right size in zeros rather than
 failing** — that is how two 600 MB files once arrived holding nothing. Every
@@ -169,6 +168,7 @@ in [`export.py`](export.py).
 
 | | |
 |--|--|
+| [`setup.sh`](setup.sh) | makes the venv and installs the four packages |
 | [`pipeline.py`](pipeline.py) | stage from tape at Fermilab and convert, on the spot |
 | [`export.py`](export.py) | convert files already on local disk |
 | [`branches.txt`](branches.txt) | the manifest — what is archived, and why not |

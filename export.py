@@ -188,7 +188,8 @@ def parse_args(argv=None):
     )
     p.add_argument("input", type=Path, help="a .root file, or a directory of them")
     p.add_argument("output", type=Path, nargs="?", help="where to write")
-    p.add_argument("-f", "--format", choices=("hdf5", "root"), default="hdf5")
+    p.add_argument("-f", "--format", choices=("root", "hdf5"), default="root",
+                   help="output format (default %(default)s)")
     p.add_argument("--manifest", type=Path, default=manifest.DEFAULT_MANIFEST)
     p.add_argument("--pattern", default="**/*.root", help="default: %(default)s")
     p.add_argument("--max-events", type=int, default=None, help="cap per file, for testing")
