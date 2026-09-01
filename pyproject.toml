@@ -2,12 +2,17 @@
 name = "minos-data-storage"
 version = "0.1.0"
 description = "Convert MINOS SNTP ntuples to HDF5 or ROOT for long-term archival"
-requires-python = ">=3.10"
-# Only what the tools import. Kept minimal because this has to install on a
-# Fermilab gpvm to run the conversion next to the tape system.
+# 3.9 because that is what the Fermilab gpvms have, and this has to run there
+# next to the tape system. The code is written to that floor: every module
+# carries `from __future__ import annotations`, so the newer annotation syntax
+# is never evaluated at runtime.
+requires-python = ">=3.9"
+# Lower bounds are the newest releases that still install on 3.9. Newer
+# Pythons resolve to newer versions; the full round-trip suite was verified
+# byte-identical on both.
 dependencies = [
-    "awkward>=2.13.0",
+    "awkward>=2.8.12",
     "h5py>=3.13.0",
-    "numpy>=2.2.6",
-    "uproot>=5.7.5",
+    "numpy>=2.0",
+    "uproot>=5.6.9",
 ]

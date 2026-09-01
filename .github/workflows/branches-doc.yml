@@ -4,7 +4,7 @@
 #
 # The generator imports nothing outside the standard library, so this needs
 # no dependency install -- it runs in seconds.
-name: branch doc
+name: checks
 
 on:
   push:
@@ -33,3 +33,33 @@ jobs:
             exit 1
           fi
           echo "BRANCHES.md is in step with branches.txt."
+
+  # The Fermilab gpvms run Python 3.9, and that is where the conversion has to
+  # happen. The code is written to that floor -- every module carries
+  # `from __future__ import annotations` -- but nothing stops a 3.10-only
+  # construct creeping in, so prove it on the oldest supported version.
+  runs-on-python-3_9:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Install the pinned floor
+        run: pip install --quiet uproot awkward numpy h5py
+
+      - name: Every module imports
+        run: python -c "import branches, formats, export, check_exclusions, pipeline"
+
+      - name: The CLIs start
+        run: |
+          python export.py --help > /dev/null
+          python pipeline.py --help > /dev/null
+          python check_exclusions.py --help > /dev/null
+
+      - name: The generator produces the same document
+        run: |
+          python make_branches_doc.py
+          git diff --exit-code BRANCHES.md

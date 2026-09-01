@@ -19,8 +19,7 @@ what is big, and the conversion is what makes them small.
 git clone https://github.com/Phidet/minos_data_storage.git
 cd minos_data_storage
 
-# Python 3.10+ with four packages. gpvms rarely have uv, so use a plain venv.
-python3 --version                       # if < 3.10, see Notes
+# Python 3.9+ with four packages -- 3.9 is what the gpvms have, and is enough.
 python3 -m venv .venv
 .venv/bin/pip install -q uproot awkward numpy h5py
 
@@ -125,9 +124,11 @@ runs are flattened. Both mappings are in the tree title as JSON; see
 
 ## Notes
 
-**Python older than 3.10 on the node.** Install a newer one into your work
-area — `uv python install 3.11` after fetching uv with its standalone
-installer, or a conda/spack environment. Nothing needs root.
+**Python 3.9 is enough**, which is what minosgpvm has, so nothing needs
+installing beyond the venv. `pip` resolves the newest packages that support
+whatever Python is present; the round-trip suite was verified byte-identical
+on 3.9 (uproot 5.6, awkward 2.8, numpy 2.0) and on 3.10 (uproot 5.7, awkward
+2.13). CI checks both.
 
 **`dccp` paths.** `find` gives plain `/pnfs/...` paths, which work where
 `/pnfs` is mounted. If it is not, use the `dcap://fndca1.fnal.gov:24125/...`
