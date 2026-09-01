@@ -1,47 +1,72 @@
 # minos_data_storage
 
-Converts MINOS `.sntp.root` ntuples into an archival format — HDF5 or ROOT —
-for long-term storage.
+Converts MINOS `.sntp.root` ntuples into HDF5 or ROOT for long-term archival.
 
-The aim is to preserve **what the detector and the simulation recorded**, so
-that a future analysis can start from the data rather than inherit MINOS's
-own conclusions. Everything the reconstruction chain produced from that data
-is dropped: tracks, showers, slices, clusters, and reconstructed events
-including the vertex.
+It keeps what the detector and the simulation recorded — 177 of the 755
+branches — and drops everything the reconstruction chain produced from that:
+tracks, showers, slices, clusters, and reconstructed events including the
+vertex. MINOS has finished, so anything not archived is gone for good; where
+a branch is a borderline call, it is kept.
 
-MINOS has finished and no new simulations are coming, so anything not
-archived here is gone for good. Where a branch is a borderline call, it is
-kept.
+Two entry points. [`export.py`](export.py) converts files already on local
+disk. [`pipeline.py`](pipeline.py) runs at Fermilab: stages from tape,
+converts on the spot, and ships only the output to UCL — the SNTP files are
+what is big, and the conversion is what makes them small.
 
-## Setup
-
-```bash
-uv sync
-```
-
-## Usage
+## Quickstart on a gpvm
 
 ```bash
-# one file
-uv run python export.py input.sntp.root out/
+git clone https://github.com/Phidet/minos_data_storage.git
+cd minos_data_storage
 
-# a whole tree, mirrored
-uv run python export.py /data/sntp /archive/hdf5
+# Python 3.10+ with four packages. gpvms rarely have uv, so use a plain venv.
+python3 --version                       # if < 3.10, see Notes
+python3 -m venv .venv
+.venv/bin/pip install -q uproot awkward numpy h5py
 
-# ROOT instead of HDF5
-uv run python export.py /data/sntp /archive/root -f root
+# The file list. Listing /pnfs is metadata only -- it does not touch tape.
+find /pnfs/fnal.gov/usr/minos/reco_far/elm7/sntp_data/2016-06 \
+     -name '*.sntp.elm7.0.root' > files.txt
+
+# Check the plan and that ssh to UCL works, before touching tape.
+ssh me@ucl-host true && echo "ssh ok"
+.venv/bin/python pipeline.py files.txt --work $PWD/work \
+    --ship me@ucl-host:/archive/minos/ --dry-run
+
+# Run it. This takes hours to days, so run it detached.
+tmux new -s minos
+.venv/bin/python pipeline.py files.txt --work $PWD/work \
+    --ship me@ucl-host:/archive/minos/
 ```
 
-The input structure is preserved, with only the trailing `.root` replaced:
+**If it stops, rerun the same command** — progress is in a ledger under
+`--work`, so it resumes and re-sends nothing. Add `--retry-failed` after a
+tape or network wobble to requeue whatever failed.
 
-```
-/data/sntp/2010/run1/f21….sntp.dogwood5.0.root
-  ->  /archive/hdf5/2010/run1/f21….sntp.dogwood5.0.h5
+A run prints four counters (requested, fetched, converted, shipped), live on
+a terminal and as plain lines in a log.
+
+### The two settings that matter
+
+| | |
+|--|--|
+| `--prestage-ahead N` | prestage requests in flight, default 500. **This is the tape knob.** With many outstanding, dCache orders them by tape volume and mounts each tape once; one at a time sends the robot back to the same tape repeatedly. Costs no local disk, so be generous |
+| `--scratch-budget GB` | cap on the work directory, default 300. Gates *fetching* only, never staging. Lower it if the work area is small — requests can stay far ahead of fetches |
+
+Others: `-f {hdf5,root}`, `--max-events N` (testing), `--keep-local`,
+`--no-check`, `--stage-timeout H`, `--dccp CMD`, `--plain`, `--dry-run`.
+
+## Converting files already on disk
+
+```bash
+python export.py input.sntp.root out/          # one file
+python export.py /data/sntp /archive/hdf5      # a tree, mirrored
+python export.py /data/sntp /archive -f root   # ROOT instead of HDF5
 ```
 
-Stripping the whole `.sntp.dogwood5.0` tail would read better, but two
-inputs differing only in those middle components would then collide on one
-output name.
+Only the trailing `.root` is replaced, so
+`2010/run1/f21….sntp.dogwood5.0.root` becomes
+`2010/run1/f21….sntp.dogwood5.0.h5`.
 
 | Flag | |
 |------|--|
@@ -50,73 +75,35 @@ output name.
 | `--manifest FILE` | a manifest other than `branches.txt` |
 | `--max-events N` | keep only the first N events per file (testing) |
 | `--overwrite` | reconvert files whose output already exists |
-| `--no-check` | skip the exclusion checks described below |
+| `--no-check` | skip the exclusion checks |
 | `--check-events N` | events to sample for those checks (default 5000) |
 
-Compression is not an option: HDF5 output is gzip, ROOT output is zlib.
-Both are the codec their format guarantees every reader can decompress,
-which is the property that matters for an archive.
+Compression is not an option: HDF5 is gzip, ROOT is zlib — the codec each
+format guarantees every reader can decompress.
 
-## What gets archived: `branches.txt`
+## Changing what gets archived
 
-Every branch in the `NtpSt` tree has a line in
-[`branches.txt`](branches.txt). A line that is not commented out is
-exported; a leading `#` excludes it, and the note after it says why.
+Every branch has a line in [`branches.txt`](branches.txt). Uncommented means
+exported; a leading `#` excludes it, and the note says why.
 
 ```
-# ── stp — digitised strip hits ─────────────────────────────
 NtpStRecord/stp/stp.plane
-NtpStRecord/stp/stp.strip
 NtpStRecord/stp/stp.planeview     # fixed by plane (2=U, 3=V)
 #NtpStRecord/stp/stp.z            # fixed by plane; one z per plane
-#NtpStRecord/stp/stp.index        # array position, carried by row order
 ```
 
-**Changing what the archive contains is an edit to that file, not a code
-change.** 177 of 755 branches are enabled by default. If a file turns up
-carrying a branch the manifest does not mention, `export.py` names it and
-carries on — add it here to archive it.
-
-`branches.py` parses it, and checks the count in the header comment against
-the number actually enabled, so the two cannot drift apart.
-
-**[BRANCHES.md](BRANCHES.md) is the reference**: all 755 branches, grouped
-as the file groups them, each with its meaning and a ✓/✗ saying whether it
-is archived. It is generated from the manifest by `make_branches_doc.py`, so
-the ticks cannot drift out of step — regenerate it after editing
-`branches.txt`:
+Editing that file is the whole mechanism — no code change. After editing,
+regenerate the reference:
 
 ```bash
 python make_branches_doc.py
 ```
 
-CI regenerates it too and fails if the committed copy differs, so a manifest
-edit without the matching doc is caught on push.
+**[BRANCHES.md](BRANCHES.md) documents all 755 branches**, each with its
+meaning and a ✓/✗ for whether it is archived. It is generated from the
+manifest, and CI fails if the committed copy has drifted.
 
-## Output formats
-
-Both hold one column per enabled branch, and round-trip every one exactly —
-dtype, shape and values — checked against the source rather than assumed. On
-the MC test file (119,205 events, 177 branches) 2.0 GB of SNTP becomes 578 MB
-of HDF5 or 577 MB of ROOT, so the choice is about what will read them rather
-than about size.
-
-**HDF5** (`.h5`) — compact and dependency-light. Jagged columns are stored
-as `values` + `offsets` rather than as variable-length datasets, which HDF5
-would leave effectively uncompressed whatever codec was asked for; the
-comment in [`formats.py`](formats.py) has the measurements.
-
-**ROOT** (`.root`) — a plain `TTree`, not the RNTuple uproot writes by
-default (only ROOT 6.28 and later read those). Two things to know if you
-open one directly rather than through `read_root`:
-
-- Branch names are made ROOT-safe: `mc.p4mu1[4]` is stored as `mc_p4mu1_4`.
-  The originals are in the tree title as JSON, and `read_root` restores them.
-- A jagged run of fixed-width rows (`vetostp.z[2]`, one pair per shield hit)
-  cannot be a single TTree branch, so it is stored flat with its width in
-  that same title.
-
-## Reading it back
+## Reading the output back
 
 ```python
 import formats
@@ -126,125 +113,56 @@ columns["stp.plane"]     # jagged, one entry per event
 metadata["events"], metadata["source"]
 ```
 
-Column names drop the `NtpStRecord/<group>/` prefix, so `stp.plane` rather
-than the full key. Every file carries its provenance: source path and size,
-event and branch counts, and when it was written.
+Names drop the `NtpStRecord/<group>/` prefix. Each file records its own
+provenance, and says what it is without reference to its filename:
+`fHeader.fVldContext.fSimFlag` (`1` data, `4` MC), `.fDetector` (`1` Near,
+`2` Far), and for simulation `mchdr.geninfo.codename` (e.g. `daikon_07`).
 
-The output also says what it *is*, without reference to its filename:
-`fHeader.fVldContext.fDetector` (`1` Near, `2` Far), `.fSimFlag` (`1` data,
-`4` Monte Carlo) and, for simulation, `mchdr.geninfo.codename` — the MC
-release such as `daikon_07`. A filename is not a durable record.
+Opening a ROOT output directly rather than through `read_root` needs two
+caveats — branch names are mangled to be ROOT-safe, and jagged fixed-width
+runs are flattened. Both mappings are in the tree title as JSON; see
+[`formats.py`](formats.py).
 
-## Running at Fermilab: `pipeline.py`
+## Notes
 
-For the real dataset the inputs are on tape at Fermilab, and copying them to
-UCL first is the wrong way round — the SNTP files are what is big and the
-conversion is what makes them small. `pipeline.py` stages from tape,
-converts on the spot, and ships only the output:
+**Python older than 3.10 on the node.** Install a newer one into your work
+area — `uv python install 3.11` after fetching uv with its standalone
+installer, or a conda/spack environment. Nothing needs root.
 
-```bash
-python pipeline.py files.txt --work /scratch/me/minos \
-    --ship me@ucl-host:/archive/minos/
-```
-
-`files.txt` is a list of `/pnfs` paths, one per line. Each file moves
-through `pending → requested → online → fetched → converted → shipped →
-done`, and every step is recorded in a ledger under `--work`, so an
-interrupted run resumes where it stopped and never re-sends what already
-landed. `--retry-failed` puts previously failed files back in the queue,
-which is usually what you want after a tape or network wobble.
-
-**On tape, `--prestage-ahead` is the setting that matters.** It is how many
-prestage requests are lodged with dCache at once (default 500). With many
-outstanding, dCache can order them by tape volume and mount each tape once;
-requesting one file at a time is the worst pattern available, because it
-sends the robot back to the same tape repeatedly. Prestage requests cost no
-local disk, so this can be generous.
-
-`--scratch-budget` (default 300 GB) is a different thing: it caps the work
-directory, and gates *fetching* only. It should never be the binding
-constraint on staging. A budget smaller than one file still makes progress
-rather than deadlocking.
-
-A run prints four counters — requested, fetched, converted, shipped — as a
-live block on a terminal and as plain lines when redirected, so it is
-readable both in `tmux` and in a log file. `--dry-run` resolves the list and
-prints the plan without lodging a single tape request.
+**`dccp` paths.** `find` gives plain `/pnfs/...` paths, which work where
+`/pnfs` is mounted. If it is not, use the `dcap://fndca1.fnal.gov:24125/...`
+form in `files.txt` instead.
 
 **An unstaged dCache file reads back as the right size in zeros rather than
-failing.** That is not hypothetical: it is how two 600 MB files arrived here
-holding nothing at all. Every fetch is checked for the ROOT magic before it
-is accepted, and a file that never comes online is given up on after
-`--stage-timeout` hours rather than holding the run open forever.
+failing** — that is how two 600 MB files once arrived holding nothing. Every
+fetch is checked for the ROOT magic, and a file that never comes online is
+abandoned after `--stage-timeout` hours.
 
-## Behaviour worth knowing
+**Excluded branches are verified, not assumed.**
+[`check_exclusions.py`](check_exclusions.py) re-tests every "this branch is
+empty / constant / a duplicate" claim on each file and refuses one that
+breaks it. That is not theoretical: it is how `deadchips` was caught being
+live in real data after looking empty in all the simulation.
 
-**One process per file.** A single file needs roughly 1.2 GB resident, and
-Python does not reliably hand that back between iterations, so a long
-in-process loop climbs until it is killed. Each conversion runs in its own
-subprocess: a couple of seconds of startup against a conversion measured in
-minutes, and memory stays flat across a run of any length.
+**Data and MC share one schema.** Measured against Elm7 Far Detector files:
+the branch set is identical to Dogwood5 MC, and a data file carries the
+`mc`/`stdhep`/`thstp` columns present but empty — 99 of the 177. Data
+therefore compresses far harder, to about 3% against 29% for MC.
 
-**Resumable.** Files whose output already exists are skipped unless
-`--overwrite`, so an interrupted run can simply be repeated.
-
-**One bad file does not stop the batch.** Failures are collected, printed at
-the end with the tail of their error, and the exit status is non-zero.
-
-**The output can never land on the input.** ROOT-to-ROOT keeps the `.root`
-suffix, so a careless output directory would otherwise overwrite the source
-— and with `--overwrite` it did, once. Two guards now refuse it.
-
-**Real data vs simulation**, now measured rather than inferred, against two
-Elm7 Far Detector files. The branch set is **identical** to the Dogwood5 MC
-file — 755 leaves, nothing missing, nothing unlisted — so one manifest serves
-both. `NtpStRecord` declares the `mc`/`stdhep`/`thstp` arrays whatever the
-file holds, and a data file carries them present but empty: **99 of the 177
-archived columns are empty for data**. Both formats round-trip all 177
-exactly either way.
-
-Data compresses much harder, since those empty columns cost almost nothing:
-120.5 MB of spill SNTP becomes 3.9 MB (3.0%), against 28.7% for MC.
-
-The two file types are told apart by `fSimFlag` (`1` data, `4` MC) rather
-than by guessing from emptiness, and `check_exclusions.py` skips the
-MC-dependent assumptions on a file that has no MC instead of failing them.
-
-**A branch the manifest has never heard of is reported, not ignored.** The
-checks above run manifest-to-file; this is the other direction. A file whose
-branch set differs from what `branches.txt` describes would otherwise be
-quietly stripped of the difference, so those branches are named under the
-file's line and the conversion continues — it is news, not an error.
-
-## Checks on excluded branches
-
-Some branches are dropped because of a *claim about their contents*: that
-they are empty, a constant sentinel, or an exact copy of something kept.
-Before converting, each file is tested against those claims
-([`check_exclusions.py`](check_exclusions.py)), and refused if any fails.
-
-Without that, a file where `digihit` was actually populated, or where
-`mc.p4neu` did not match the truth particle table, would be silently
-stripped of real data.
-
-```bash
-uv run python check_exclusions.py input.sntp.root
-```
-
-Branches dropped *by policy* — the whole reconstruction chain — are not
-checked: there is no claim to test.
-
----
+**Design rationale lives with the code**, not here: why HDF5 avoids
+variable-length datasets and why ROOT output is a TTree are in
+[`formats.py`](formats.py); why each file converts in its own subprocess is
+in [`export.py`](export.py).
 
 ## Files
 
 | | |
 |--|--|
-| [`branches.txt`](branches.txt) | the manifest — every branch, grouped, with reasons |
-| [`branches.py`](branches.py) | parses it |
-| [`BRANCHES.md`](BRANCHES.md) | all 755 branches, what each means, and whether it is archived |
-| [`make_branches_doc.py`](make_branches_doc.py) | regenerates BRANCHES.md from the manifest |
-| [`formats.py`](formats.py) | HDF5 and ROOT writers and readers |
-| [`export.py`](export.py) | the CLI, for files already on local disk |
 | [`pipeline.py`](pipeline.py) | stage from tape at Fermilab, convert, ship to UCL |
-| [`check_exclusions.py`](check_exclusions.py) | verifies the assumptions behind dropped branches |
+| [`export.py`](export.py) | convert files already on local disk |
+| [`branches.txt`](branches.txt) | the manifest — what is archived, and why not |
+| [`BRANCHES.md`](BRANCHES.md) | all 755 branches explained |
+| [`branches.py`](branches.py) | parses the manifest |
+| [`formats.py`](formats.py) | HDF5 and ROOT readers and writers |
+| [`check_exclusions.py`](check_exclusions.py) | verifies the exclusion claims per file |
+| [`make_branches_doc.py`](make_branches_doc.py) | regenerates BRANCHES.md |

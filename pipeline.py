@@ -160,11 +160,13 @@ def ship(local: Path, rel: Path, destination: str) -> tuple[bool, str]:
     interrupted run resumes without re-sending what already landed.
     `--partial` keeps a half-sent file to continue from.
     """
+    sub = "" if str(rel.parent) == "." else f"{rel.parent}/"
     if ":" in destination:
         host, _, base = destination.partition(":")
-        target = f"{host}:{base.rstrip('/')}/{rel.parent}/"
+        remote_dir = f"{base.rstrip('/')}/{sub}".rstrip("/")
+        target = f"{host}:{remote_dir}/"
         mkdir = subprocess.run(
-            ["ssh", host, "mkdir", "-p", f"{base.rstrip('/')}/{rel.parent}"],
+            ["ssh", host, "mkdir", "-p", remote_dir],
             capture_output=True, text=True,
         )
         if mkdir.returncode != 0:
@@ -272,8 +274,9 @@ def run(args) -> int:
         for src in sources[:10]:
             rel = Path(src).relative_to(root)
             dst = (out_dir / rel).with_suffix(export.formats_suffix(args.format))
+            sub = "" if str(rel.parent) == "." else f"{rel.parent}/"
             print(f"  {src}\n      -> {dst}"
-                  f"\n      -> {args.ship or '(no ship target)'}/{rel.parent}/{dst.name}")
+                  f"\n      -> {args.ship or '(no ship target)'}/{sub}{dst.name}")
         if len(sources) > 10:
             print(f"  ... and {len(sources) - 10} more")
         print("\nNo tape requests issued, nothing written.")
