@@ -211,14 +211,17 @@ class Progress:
 def read_inputs(path: Path, pattern: str) -> tuple[list[str], Path]:
     """The files to convert, and the directory their tree is relative to.
 
-    Takes either a /pnfs directory -- listing it is metadata only and does
-    not touch tape -- or a text file of paths, one per line, for a curated
-    subset. Returns paths as strings because a list file may hold `dcap://`
-    URLs, which are not filesystem paths.
+    Takes a /pnfs directory -- listing one is metadata only and does not
+    touch tape -- or a single .root file, or a text file of paths one per
+    line for a curated subset. Returns paths as strings because a list file
+    may hold `dcap://` URLs, which are not filesystem paths.
     """
     if path.is_dir():
         found = sorted(str(p) for p in path.glob(pattern))
         return found, path
+
+    if path.suffix == ".root":
+        return [str(path)], path.parent
 
     if not path.exists():
         # Most likely a mistyped /pnfs path. A traceback is a poor answer to
@@ -229,8 +232,17 @@ def read_inputs(path: Path, pattern: str) -> tuple[list[str], Path]:
             "    if this is a /pnfs path, check it is mounted: ls /pnfs/minos"
         )
 
+    try:
+        text = path.read_text()
+    except UnicodeDecodeError:
+        raise SystemExit(
+            f"cannot read {path} as a list of paths: it is not text.\n"
+            "    give a /pnfs directory, a single .root file, or a text file\n"
+            "    listing paths one per line."
+        )
+
     lines = []
-    for line in path.read_text().splitlines():
+    for line in text.splitlines():
         line = line.split("#", 1)[0].strip()
         if line:
             lines.append(line)

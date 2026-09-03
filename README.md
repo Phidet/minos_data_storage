@@ -48,7 +48,8 @@ Detach with `Ctrl-b d` and the run keeps going; `tmux attach -t minos` picks
 it back up.
 
 `SOURCE` can be a `/pnfs` directory — listing one is metadata only and does
-not touch tape — or a text file of paths, one per line, for a curated subset.
+not touch tape — a single `.root` file, or a text file of paths one per line
+for a curated subset.
 
 **If it stops, rerun the same command** — progress is in a ledger beside the
 output, so it resumes and reconverts nothing. Add `--retry-failed` to requeue
