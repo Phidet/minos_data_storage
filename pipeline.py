@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage MINOS SNTP files from tape and convert them, at Fermilab.
+"""Convert MINOS SNTP files from tape storage, at Fermilab.
 
 Runs next to the tape system, because the SNTP files are what is big and the
 conversion is what makes them small -- a data file comes out around 3% of its
@@ -7,27 +7,31 @@ input. Output is written to a MINOS data area; moving it onward is a separate
 bulk transfer, which keeps a days-long tape job independent of the network
 and puts no credentials on a shared machine.
 
+The normal way to run this is against a SAM dataset definition, staged first:
+
+    samweb prestage-dataset --defname=my_definition --parallel=4
+    python pipeline.py --defname my_definition /exp/minos/data/users/$USER/archive
+
+This tool does not stage anything itself -- that is `samweb`'s job, done
+once, up front. It only watches each file's locality and converts it once
+dCache reports it on disk. A /pnfs directory or a list of paths also works,
+for files staged some other way:
+
     python pipeline.py /pnfs/minos/reco_far/elm7/sntp_data/2016-06 \
         /exp/minos/data/users/$USER/archive
 
 Each file moves through:
 
-    pending -> requested -> online -> fetched -> done
+    pending -> online -> done
 
-`requested` means a prestage request is lodged with dCache; `online` means the
-file is on dCache disk and can be fetched cheaply. Progress is recorded in a
-ledger beside the output, so a run over tens of thousands of files survives
-being interrupted -- and survives the staging area being wiped.
+`online` means dCache reports the file on disk and it can be read now.
+Progress is recorded in a ledger beside the output, so a run over tens of
+thousands of files survives being interrupted.
 
-Nothing is copied to local disk. Once a file is on dCache disk it is read
-over XRootD, which is the protocol meant for that; reading the /pnfs NFS
-mount directly is against Fermilab guidance, because heavy traffic on those
-convenience mounts stalls the interactive node for everyone.
-
-On tape efficiency: `--prestage-ahead` is the setting that matters. dCache
-can order many outstanding requests by tape volume and mount each tape once,
-so keeping a lot of requests in flight is what avoids sending the robot back
-to the same tape repeatedly.
+Nothing is copied to local disk. A file on dCache disk is read over XRootD,
+which is the protocol meant for that; reading the /pnfs NFS mount directly is
+against Fermilab guidance, because heavy traffic on those convenience mounts
+stalls the interactive node for everyone.
 """
 
 from __future__ import annotations
@@ -47,13 +51,17 @@ import branches as manifest
 import export
 
 # In order. A file only ever moves forward, or to "failed".
-FLOW = ["pending", "requested", "online", "done"]
+FLOW = ["pending", "online", "done"]
 # (state, label) for the progress display
-SHOWN = [("requested", "requested"), ("online", "on disk"), ("done", "converted")]
+SHOWN = [("online", "on disk"), ("done", "converted")]
 
 
 def now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def epoch(iso: str) -> float:
+    return datetime.fromisoformat(iso).timestamp()
 
 
 # --------------------------------------------------------------------------
@@ -103,32 +111,75 @@ class Ledger:
 
 
 # --------------------------------------------------------------------------
-# dCache
+# SAM
 # --------------------------------------------------------------------------
 
 
-def prestage(src: str, dccp: str) -> subprocess.Popen:
-    """Ask dCache to bring a file to disk. Does not copy it, does not block.
+def samweb(*args: str) -> str:
+    """Run a samweb subcommand and return its stdout.
 
-    Launched with Popen rather than run() so the request is lodged whether or
-    not this particular dccp build waits for the stage to finish.
+    samweb's own error messages already say what is wrong -- a typo'd
+    definition, no station configured, not logged in -- so they are surfaced
+    as-is rather than wrapped in a traceback.
     """
-    return subprocess.Popen(
-        [dccp, "-P", src],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
+    if shutil.which("samweb") is None:
+        raise SystemExit(
+            "cannot find the samweb command.\n"
+            "    it resolves SAM definitions to files, so nothing works "
+            "without it.\n"
+            "    run: source ./setup.sh"
+        )
+    done = subprocess.run(["samweb", *args], capture_output=True, text=True)
+    if done.returncode != 0:
+        raise SystemExit(
+            f"samweb {' '.join(args)} failed:\n"
+            f"    {(done.stderr or done.stdout).strip()}\n"
+            "    is the session set up? run: source ./setup.sh"
+        )
+    return done.stdout
 
 
-def is_online(src: str, dccp: str) -> bool:
-    """Whether the file is on dCache disk now. `-t -1` asks without waiting."""
-    done = subprocess.run(
-        [dccp, "-P", "-t", "-1", src],
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
-    return done.returncode == 0
+def pnfs_rel(url: str) -> Path:
+    """The /pnfs sub-path a streaming URL was built from.
+
+    root://door/pnfs/fnal.gov/usr/minos/reco_far/elm7/.../F....root
+    -> reco_far/elm7/.../F....root
+
+    Used to mirror a SAM definition's files into the same directory shape
+    the directory-based mode produces, without a second samweb call per file.
+    """
+    path = Path("/" + url.split("://", 1)[-1].split("/", 1)[-1])
+    parts = path.parts
+    if "usr" in parts:
+        return Path(*parts[parts.index("usr") + 2:])
+    return Path(path.name)
+
+
+def resolve_definition(defname: str) -> tuple[list[str], dict[str, str], dict[str, Path]]:
+    """Every file in a SAM dataset definition, with a streaming URL for each.
+
+    One samweb call lists the definition; one more per file asks where it
+    actually lives, since a SAM filename alone carries no path. This is
+    metadata only -- it does not stage anything. Stage the definition first:
+    `samweb prestage-dataset --defname=... --parallel=4` (see the README).
+    """
+    names = [n for n in samweb("list-files", f"defname: {defname}").splitlines() if n.strip()]
+    if not names:
+        raise SystemExit(
+            f"definition {defname!r} has no files, or does not exist.\n"
+            f"    check: samweb describe-definition {defname}"
+        )
+    url_of: dict[str, str] = {}
+    rel_of: dict[str, Path] = {}
+    for name in names:
+        url_of[name] = samweb("get-file-access-url", "--schema=root", name).strip()
+        rel_of[name] = pnfs_rel(url_of[name])
+    return names, url_of, rel_of
+
+
+# --------------------------------------------------------------------------
+# dCache
+# --------------------------------------------------------------------------
 
 
 def xrootd_url(pnfs: str, door: str) -> str:
@@ -154,13 +205,64 @@ def xrootd_url(pnfs: str, door: str) -> str:
     return f"root://{door}/pnfs/fnal.gov/usr/{experiment}/{rest}"
 
 
+_xrootd_fs: dict[str, object] = {}
+
+
+def _online_xrootd(url: str) -> bool:
+    """XRootD stat fallback, for anything not on the /pnfs NFS mount --
+    a SAM-resolved URL, or a dcap://-form list entry. Confirmed reachable
+    with the bindings fsspec-xrootd already installs.
+    """
+    from urllib.parse import urlsplit
+
+    from XRootD import client
+    from XRootD.client.flags import StatInfoFlags
+
+    parts = urlsplit(url)
+    server = f"{parts.scheme}://{parts.netloc}"
+    fs = _xrootd_fs.get(server)
+    if fs is None:
+        fs = _xrootd_fs[server] = client.FileSystem(server)
+    status, stat = fs.stat(parts.path)
+    if not status.ok or stat is None:
+        return False
+    return not bool(stat.flags & StatInfoFlags.OFFLINE)
+
+
+def is_online(src: str, url: str) -> bool:
+    """Whether the file is on dCache disk now -- readable without delay.
+
+    Prefers the dCache NFS dot-command, a plain metadata read no heavier
+    than `ls`: `<dir>/.(get)(<name>)(locality)` returns one of three
+    documented values, ONLINE / NEARLINE / ONLINE_AND_NEARLINE -- readable
+    now means the string contains ONLINE. Used when `src` is a mounted
+    /pnfs path; falls back to an XRootD stat otherwise.
+
+    This performs no staging and issues no request of any kind -- it only
+    observes. Getting the file onto disk in the first place is someone
+    else's job: `samweb prestage-dataset` for a SAM definition, run once
+    ahead of time (see the README).
+    """
+    parts = Path(src).parts
+    if "://" not in src:
+        if len(parts) >= 3 and parts[1] == "pnfs":
+            dotfile = Path(src).parent / f".(get)({Path(src).name})(locality)"
+            try:
+                return "ONLINE" in dotfile.read_text()
+            except OSError:
+                pass  # not there, or /pnfs not mounted -- fall through
+        else:
+            return True  # an ordinary local file -- nothing to stage
+    return _online_xrootd(url)
+
+
 # --------------------------------------------------------------------------
 # Progress
 # --------------------------------------------------------------------------
 
 
 class Progress:
-    """Three counters. A live block on a terminal, plain lines in a log.
+    """Two counters. A live block on a terminal, plain lines in a log.
 
     A long run belongs in tmux or nohup, and redrawing bars into a log file
     produces something unreadable, so the two cases are handled separately.
@@ -253,10 +355,18 @@ def read_inputs(path: Path, pattern: str) -> tuple[list[str], Path]:
 
 
 def run(args) -> int:
-    sources, root = read_inputs(args.files, args.pattern)
+    if args.defname:
+        sources, url_of, rel_of = resolve_definition(args.defname)
+        source_label = f"SAM definition {args.defname!r}"
+    else:
+        sources, root = read_inputs(args.files, args.pattern)
+        url_of = {s: xrootd_url(s, args.door) for s in sources}
+        rel_of = {s: Path(s).relative_to(root) for s in sources}
+        source_label = str(args.files)
+
     if not sources:
         where = f"under {args.files} matching {args.pattern!r}" \
-            if args.files.is_dir() else f"listed in {args.files}"
+            if not args.defname and args.files.is_dir() else f"in {source_label}"
         print(f"No files {where}", file=sys.stderr)
         return 2
 
@@ -264,31 +374,22 @@ def run(args) -> int:
     ledger = Ledger(out_dir / ".ledger.json")
 
     wanted = manifest.load(args.manifest)
-    print(f"{len(sources)} file(s); {len(wanted)} branches enabled; format {args.format}")
+    print(f"{len(sources)} file(s) from {source_label}; {len(wanted)} branches "
+          f"enabled; format {args.format}")
     print(f"output  {out_dir}")
-    print(f"reading over XRootD from {args.door}, prestage-ahead "
-          f"{args.prestage_ahead}")
+    print("reading over XRootD; this tool does not stage files itself -- "
+          "make sure they are already on disk (samweb prestage-dataset, or "
+          "equivalent) before or shortly after starting")
 
     if args.dry_run:
-        print("\nDry run. Would stage and convert:")
+        print("\nDry run. Would watch and convert:")
         for src in sources[:10]:
-            rel = Path(src).relative_to(root)
-            dst = (out_dir / rel).with_suffix(export.formats_suffix(args.format))
+            dst = (out_dir / rel_of[src]).with_suffix(export.formats_suffix(args.format))
             print(f"  {src}\n      -> {dst}")
         if len(sources) > 10:
             print(f"  ... and {len(sources) - 10} more")
-        print("\nNo tape requests issued, nothing written.")
+        print("\nNo requests issued, nothing written.")
         return 0
-
-    # Fail on this now rather than on the first file. dccp is not always on
-    # PATH -- it may need a UPS setup first -- and a traceback partway into a
-    # run is a poor way to find that out.
-    if not (shutil.which(args.dccp) or Path(args.dccp).is_file()):
-        raise SystemExit(
-            f"cannot find the dccp command: {args.dccp!r}\n"
-            "    it moves files off tape, so nothing works without it.\n"
-            "    on a gpvm it may need a UPS setup first; check with: which dccp"
-        )
 
     # XRootD's defaults are tuned for a healthy link; a dCache door under load
     # can exceed them and drop a read mid-file. Fermilab's own guidance is to
@@ -312,7 +413,6 @@ def run(args) -> int:
         format=args.format, manifest=args.manifest, max_events=args.max_events
     )
     progress = Progress(len(sources), live=sys.stdout.isatty() and not args.plain)
-    requests: dict[str, subprocess.Popen] = {}
     since_save = 0
 
     try:
@@ -322,38 +422,30 @@ def run(args) -> int:
                 break
             worked = False
 
-            # 1. keep requests flowing to dCache -- this is the tape-efficiency knob
-            in_flight = len(ledger.in_state("requested"))
-            for src in ledger.in_state("pending")[: max(0, args.prestage_ahead - in_flight)]:
-                requests[src] = prestage(src, args.dccp)
-                ledger.set(src, "requested", requested_at=time.time())
-                worked = True
-            for src, proc in list(requests.items()):
-                if proc.poll() is not None:
-                    requests.pop(src, None)  # reap, do not wait
-
-            # 2. which requests have landed. A file that never comes online
-            #    would otherwise hold the run open forever, so requests get a
-            #    deadline: tape can be slow, but not unboundedly.
+            # 1. which pending files are on disk now. This only observes --
+            #    staging happens externally (samweb prestage-dataset ahead of
+            #    time, or however the files got there); nothing here issues
+            #    a stage request.
             deadline = args.stage_timeout * 3600
-            for src in ledger.in_state("requested")[: args.poll_batch]:
-                if is_online(src, args.dccp):
+            for src in ledger.in_state("pending")[: args.poll_batch]:
+                if is_online(src, url_of[src]):
                     ledger.set(src, "online")
                     worked = True
-                elif time.time() - ledger.records[src].get("requested_at", 0) > deadline:
+                elif time.time() - epoch(ledger.records[src]["since"]) > deadline:
                     ledger.set(src, "failed",
-                               error=f"never came online within {args.stage_timeout}h")
-                    progress.line(f"  GAVE UP {Path(src).name}: not staged in "
+                               error=f"not online within {args.stage_timeout}h -- "
+                                     "is it staged? samweb prestage-dataset")
+                    progress.line(f"  GAVE UP {Path(src).name}: not online in "
                                   f"{args.stage_timeout}h")
                     worked = True
 
-            # 3. convert, straight from dCache over XRootD. There is no
+            # 2. convert, straight from dCache over XRootD. There is no
             #    local copy: the file is already on dCache disk by now, and
             #    streaming it is both faster to start and the only sanctioned
             #    way to read it from an interactive node.
             for src in ledger.in_state("online")[:1]:
-                rel = Path(src).relative_to(root)
-                url = xrootd_url(src, args.door)
+                rel = rel_of[src]
+                url = url_of[src]
                 dst = (out_dir / rel).with_suffix(export.formats_suffix(args.format))
                 dst.parent.mkdir(parents=True, exist_ok=True)
 
@@ -416,30 +508,33 @@ def parse_args(argv=None):
     p = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    p.add_argument("files", type=Path,
-                   help="a /pnfs directory, or a text file of paths one per line")
+    p.add_argument("files", type=Path, nargs="?",
+                   help="a /pnfs directory, a single .root file, or a text file of "
+                        "paths one per line -- omit this and use --defname instead")
+    p.add_argument("--defname", metavar="NAME",
+                   help="a SAM dataset definition to process, in place of `files`. "
+                        "Stage it first: samweb prestage-dataset --defname=NAME")
     p.add_argument("--pattern", default="**/*.root", metavar="GLOB",
-                   help="which files to take from a directory (default %(default)s)")
+                   help="which files to take from a directory (default %(default)s); "
+                        "ignored with --defname")
     p.add_argument("output", type=Path,
                    help="where the converted files go, e.g. "
                         "/exp/minos/data/users/$USER/archive")
     p.add_argument("-f", "--format", choices=("root", "hdf5"), default="root",
                    help="output format (default %(default)s)")
     p.add_argument("--manifest", type=Path, default=manifest.DEFAULT_MANIFEST)
-    p.add_argument("--prestage-ahead", type=int, default=500, metavar="N",
-                   help="prestage requests kept in flight (default %(default)s). "
-                        "The tape-efficiency knob: costs no local disk")
     p.add_argument("--door", default="fndca1.fnal.gov:1094", metavar="HOST:PORT",
-                   help="dCache XRootD door to stream through (default %(default)s)")
+                   help="dCache XRootD door to stream through (default %(default)s); "
+                        "ignored with --defname, where samweb supplies the URL")
     p.add_argument("--poll-batch", type=int, default=100, metavar="N",
-                   help="requests checked for arrival per pass (default %(default)s)")
+                   help="files checked for locality per pass (default %(default)s)")
     p.add_argument("--poll-interval", type=float, default=30.0, metavar="S",
                    help="seconds to wait when there is nothing to do")
     p.add_argument("--stage-timeout", type=float, default=48.0, metavar="H",
-                   help="give up on a file not staged within this many hours "
-                        "(default %(default)s). Tape can be slow when busy, but "
-                        "a request that never lands would hold the run open")
-    p.add_argument("--dccp", default="dccp", help="dccp command (override to test)")
+                   help="give up on a file not online within this many hours "
+                        "(default %(default)s). This tool does not stage files "
+                        "itself, so a file stuck here was never staged, or is "
+                        "still waiting behind a slow tape")
     p.add_argument("--max-events", type=int, default=None, help="cap per file, for testing")
     p.add_argument("--retry-failed", action="store_true",
                    help="reset previously failed files to pending and try again. "
@@ -450,9 +545,12 @@ def parse_args(argv=None):
     p.add_argument("--plain", action="store_true",
                    help="plain output even on a terminal")
     p.add_argument("--dry-run", action="store_true",
-                   help="resolve the list and print the plan; no tape requests, "
+                   help="resolve the list and print the plan; no requests, "
                         "nothing written")
-    return p.parse_args(argv)
+    args = p.parse_args(argv)
+    if bool(args.files) == bool(args.defname):
+        p.error("give exactly one of `files` or --defname")
+    return args
 
 
 def main(argv=None) -> int:
