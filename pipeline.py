@@ -7,7 +7,8 @@ input. Output is written to a MINOS data area; moving it onward is a separate
 bulk transfer, which keeps a days-long tape job independent of the network
 and puts no credentials on a shared machine.
 
-    python pipeline.py files.txt /exp/minos/data/users/$USER/archive
+    python pipeline.py /pnfs/minos/reco_far/elm7/sntp_data/2016-06 \
+        /exp/minos/data/users/$USER/archive
 
 Each file moves through:
 
@@ -17,10 +18,6 @@ Each file moves through:
 file is on dCache disk and can be fetched cheaply. Progress is recorded in a
 ledger beside the output, so a run over tens of thousands of files survives
 being interrupted -- and survives the staging area being wiped.
-
-Output stays at Fermilab. Moving it on is a separate bulk transfer (Globus,
-or a pull from the far end), which keeps a days-long tape job independent of
-the network and puts no credentials on a shared machine.
 
 On tape efficiency: `--prestage-ahead` is the setting that matters. dCache can
 order many outstanding requests by tape volume and mount each tape once, so
@@ -34,6 +31,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -161,7 +159,7 @@ def fetch(src: str, dst: Path, dccp: str) -> tuple[bool, str]:
 
 
 class Progress:
-    """Four counters. A live block on a terminal, plain lines in a log.
+    """Three counters. A live block on a terminal, plain lines in a log.
 
     A long run belongs in tmux or nohup, and redrawing bars into a log file
     produces something unreadable, so the two cases are handled separately.
@@ -221,6 +219,15 @@ def read_inputs(path: Path, pattern: str) -> tuple[list[str], Path]:
         found = sorted(str(p) for p in path.glob(pattern))
         return found, path
 
+    if not path.exists():
+        # Most likely a mistyped /pnfs path. A traceback is a poor answer to
+        # that, and /pnfs not being mounted looks identical from here.
+        raise SystemExit(
+            f"no such file or directory: {path}\n"
+            "    expected a /pnfs directory, or a text file listing paths.\n"
+            "    if this is a /pnfs path, check it is mounted: ls /pnfs/minos"
+        )
+
     lines = []
     for line in path.read_text().splitlines():
         line = line.split("#", 1)[0].strip()
@@ -268,6 +275,16 @@ def run(args) -> int:
             print(f"  ... and {len(sources) - 10} more")
         print("\nNo tape requests issued, nothing written.")
         return 0
+
+    # Fail on this now rather than on the first file. dccp is not always on
+    # PATH -- it may need a UPS setup first -- and a traceback partway into a
+    # run is a poor way to find that out.
+    if not (shutil.which(args.dccp) or Path(args.dccp).is_file()):
+        raise SystemExit(
+            f"cannot find the dccp command: {args.dccp!r}\n"
+            "    it moves files off tape, so nothing works without it.\n"
+            "    on a gpvm it may need a UPS setup first; check with: which dccp"
+        )
 
     out_dir.mkdir(parents=True, exist_ok=True)
     staged_dir.mkdir(parents=True, exist_ok=True)

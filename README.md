@@ -15,24 +15,40 @@ them onward is a separate bulk transfer — the conversion is what makes the
 files small (an SNTP data file comes out around 3% of its input), so there
 is no reason to move the big version anywhere.
 
-## Quickstart on a gpvm
+## Setting up on a gpvm — once
 
 ```bash
 git clone https://github.com/Phidet/minos_data_storage.git
 cd minos_data_storage
-./setup.sh                        # venv + the four packages it imports
+./setup.sh            # makes .venv and installs the four packages it imports
+```
+
+That is the whole install. `setup.sh` is safe to rerun, and will just confirm
+what is already there.
+
+## Running it — every time
+
+Start in `tmux` and activate the environment *inside* it, so the job survives
+your ssh connection dropping. Activation is per-shell, so it has to happen in
+the shell that will run the job.
+
+```bash
+tmux new -s minos                 # returning later: tmux attach -t minos
+cd minos_data_storage
 source .venv/bin/activate
 
+SOURCE=/pnfs/minos/reco_far/elm7/sntp_data/2016-06
 ARCHIVE=/exp/minos/data/users/$USER/archive
 
-# Point it straight at a /pnfs directory. Listing one is metadata only --
-# it does not touch tape. A text file of paths works too, for a subset.
-python pipeline.py /pnfs/minos/reco_far/elm7/sntp_data/2016-06 $ARCHIVE --dry-run
-
-# Run it. This takes hours to days, so run it detached.
-tmux new -s minos
-python pipeline.py /pnfs/minos/reco_far/elm7/sntp_data/2016-06 $ARCHIVE
+python pipeline.py $SOURCE $ARCHIVE --dry-run    # what would happen
+python pipeline.py $SOURCE $ARCHIVE              # do it
 ```
+
+Detach with `Ctrl-b d` and the run keeps going; `tmux attach -t minos` picks
+it back up.
+
+`SOURCE` can be a `/pnfs` directory — listing one is metadata only and does
+not touch tape — or a text file of paths, one per line, for a curated subset.
 
 **If it stops, rerun the same command** — progress is in a ledger beside the
 output, so it resumes and reconverts nothing. Add `--retry-failed` to requeue
