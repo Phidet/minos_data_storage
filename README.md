@@ -52,30 +52,38 @@ not touch tape — or a text file of paths, one per line, for a curated subset.
 
 **If it stops, rerun the same command** — progress is in a ledger beside the
 output, so it resumes and reconverts nothing. Add `--retry-failed` to requeue
-whatever failed; tape errors are often transient. The ledger sits with the
-output rather than the staging area, so wiping scratch costs nothing but the
-files in flight.
+whatever failed; tape errors are often transient.
 
-A run prints three counters (staged, fetched, converted), live on a terminal
-and as plain lines in a log.
+A run prints three counters (requested, on disk, converted), live on a
+terminal and as plain lines in a log.
 
 **Getting it to UCL** is a separate step, once conversion is done and
 verified: Globus, or an rsync pull initiated from the far end. Keeping it
 separate means a days-long tape job does not depend on the network, and no
 credentials sit on a shared machine.
 
-### The two settings that matter
+### Nothing is copied to local disk
 
-| | |
-|--|--|
-| `--prestage-ahead N` | prestage requests in flight, default 500. **This is the tape knob.** With many outstanding, dCache orders them by tape volume and mounts each tape once; one at a time sends the robot back to the same tape repeatedly. Costs no local disk, so be generous |
-| `--scratch-budget GB` | cap on the *staging* area, default 300. Gates fetching only, never staging requests, and does not limit the output. Lower it if scratch is tight — requests can stay far ahead of fetches |
+Prestaging brings a file from tape to dCache disk; the conversion then reads
+it **over XRootD**, straight from dCache. There is no staging area, no scratch
+budget, and no local copy to clean up.
 
-Staged files go to `<output>/.staging` unless `--work` points elsewhere;
-put it on local scratch if the data area is slow or tight.
+That is deliberate, and the obvious alternatives are both wrong. Reading
+`/pnfs/...` directly goes against Fermilab guidance — those NFS mounts are a
+convenience for metadata, and heavy read traffic on them stalls the
+interactive node for everyone. Copying each file down first would put a
+stream of 600 MB writes onto `/exp/…/data`, a quota-limited NAS that is
+explicitly not for heavy I/O. XRootD is the protocol meant for this.
 
-Others: `-f {root,hdf5}`, `--pattern GLOB`, `--max-events N` (testing),
-`--no-check`, `--stage-timeout H`, `--dccp CMD`, `--plain`, `--dry-run`.
+**`--prestage-ahead` is the one setting that matters.** It is how many
+prestage requests are lodged with dCache at once (default 500). With many
+outstanding, dCache can order them by tape volume and mount each tape once;
+requesting one at a time sends the robot back to the same tape repeatedly.
+Requests cost nothing locally, so be generous.
+
+Others: `-f {root,hdf5}`, `--pattern GLOB`, `--door HOST:PORT`,
+`--max-events N` (testing), `--no-check`, `--stage-timeout H`, `--dccp CMD`,
+`--plain`, `--dry-run`.
 
 ## Converting files already on disk
 
@@ -159,10 +167,14 @@ which is what to point this at. The `dcap://` URL form uses a different
 prefix — `dcap://fndca1.fnal.gov:24125/pnfs/fnal.gov/usr/minos/...` — and is
 what you need if `/pnfs` is not mounted; a list file may hold either.
 
-**An unstaged dCache file reads back as the right size in zeros rather than
-failing** — that is how two 600 MB files once arrived holding nothing. Every
-fetch is checked for the ROOT magic, and a file that never comes online is
-abandoned after `--stage-timeout` hours.
+**A file that never comes online is abandoned** after `--stage-timeout`
+hours, rather than holding the run open. Tape can be slow when busy, but a
+request that never lands would otherwise stall everything behind it.
+
+Copying an unstaged dCache file over NFS used to return the right size in
+zeros rather than failing — that is how two 600 MB files once arrived here
+holding nothing at all. Streaming removes that failure mode: XRootD will not
+hand over a file that is not there.
 
 **Excluded branches are verified, not assumed.**
 [`check_exclusions.py`](check_exclusions.py) re-tests every "this branch is

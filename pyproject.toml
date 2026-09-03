@@ -12,6 +12,8 @@ requires-python = ">=3.9"
 # byte-identical on both.
 dependencies = [
     "awkward>=2.8.12",
+    # Lets uproot read root:// URLs, which is how files are read out of dCache
+    "fsspec-xrootd>=0.5",
     "h5py>=3.13.0",
     "numpy>=2.0",
     "uproot>=5.6.9",

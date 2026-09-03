@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 import time
@@ -42,7 +43,7 @@ import uproot
 import branches as manifest
 import formats
 
-src, dst, fmt = Path({src!r}), Path({dst!r}), {fmt!r}
+src, dst, fmt = {src!r}, Path({dst!r}), {fmt!r}
 wanted = manifest.load({manifest_path!r})
 
 with uproot.open(src) as f:
@@ -79,9 +80,10 @@ with uproot.open(src) as f:
         columns[short] = tree[name].array(entry_stop=stop)
     n_events = tree.num_entries if stop is None else min(stop, tree.num_entries)
 
+is_url = "://" in src
 metadata = {{
-    "source": str(src),
-    "source_bytes": src.stat().st_size,
+    "source": src,
+    "source_bytes": None if is_url else Path(src).stat().st_size,
     "events": int(n_events),
     "branches": len(columns),
     "written": {written!r},
@@ -134,6 +136,22 @@ def formats_suffix(fmt: str) -> str:
     return formats.SUFFIX[fmt]
 
 
+def error_summary(stderr: str) -> str:
+    """The exception from a worker traceback, not whatever came last.
+
+    uproot's messages run to several lines and end with context like
+    "for file path ...", so taking the final line reports the filename we
+    already knew instead of what went wrong.
+    """
+    lines = [line for line in (stderr or "").strip().splitlines() if line.strip()]
+    if not lines:
+        return ""
+    for i in range(len(lines) - 1, -1, -1):
+        if re.match(r"^[A-Za-z_][\w.]*(Error|Exception|Exit|Interrupt|Warning):", lines[i]):
+            return " ".join(line.strip() for line in lines[i:])[:300]
+    return lines[-1][:300]
+
+
 def convert(src: Path, dst: Path, args) -> dict:
     code = WORKER.format(
         root=str(Path(__file__).resolve().parent),
@@ -154,7 +172,7 @@ def convert(src: Path, dst: Path, args) -> dict:
         return {
             "ok": False,
             "elapsed": elapsed,
-            "error": tail[-1] if tail else f"exited {done.returncode}",
+            "error": error_summary(done.stderr) or f"exited {done.returncode}",
             "stderr": "\n".join(tail[-12:]),
         }
 

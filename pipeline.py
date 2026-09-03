@@ -19,11 +19,15 @@ file is on dCache disk and can be fetched cheaply. Progress is recorded in a
 ledger beside the output, so a run over tens of thousands of files survives
 being interrupted -- and survives the staging area being wiped.
 
-On tape efficiency: `--prestage-ahead` is the setting that matters. dCache can
-order many outstanding requests by tape volume and mount each tape once, so
-keeping a lot of requests in flight is what avoids sending the robot back to
-the same tape repeatedly. `--scratch-budget` only limits how much sits on
-local disk; it should never be the binding constraint on staging.
+Nothing is copied to local disk. Once a file is on dCache disk it is read
+over XRootD, which is the protocol meant for that; reading the /pnfs NFS
+mount directly is against Fermilab guidance, because heavy traffic on those
+convenience mounts stalls the interactive node for everyone.
+
+On tape efficiency: `--prestage-ahead` is the setting that matters. dCache
+can order many outstanding requests by tape volume and mount each tape once,
+so keeping a lot of requests in flight is what avoids sending the robot back
+to the same tape repeatedly.
 """
 
 from __future__ import annotations
@@ -43,9 +47,9 @@ import branches as manifest
 import export
 
 # In order. A file only ever moves forward, or to "failed".
-FLOW = ["pending", "requested", "online", "fetched", "done"]
+FLOW = ["pending", "requested", "online", "done"]
 # (state, label) for the progress display
-SHOWN = [("requested", "staged"), ("fetched", "fetched"), ("done", "converted")]
+SHOWN = [("requested", "requested"), ("online", "on disk"), ("done", "converted")]
 
 
 def now() -> str:
@@ -127,30 +131,27 @@ def is_online(src: str, dccp: str) -> bool:
     return done.returncode == 0
 
 
-def fetch(src: str, dst: Path, dccp: str) -> tuple[bool, str]:
-    """Copy an online file to local scratch. Disk to disk, so this is quick."""
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    done = subprocess.run(
-        [dccp, src, str(dst)], capture_output=True, text=True
-    )
-    if done.returncode != 0:
-        dst.unlink(missing_ok=True)
-        tail = (done.stderr or done.stdout or "").strip().splitlines()
-        return False, tail[-1] if tail else f"dccp exited {done.returncode}"
+def xrootd_url(pnfs: str, door: str) -> str:
+    """The streaming URL for a file on the /pnfs NFS mount.
 
-    # An unstaged dCache file reads back as the right size in zeros rather
-    # than failing. That is how two 600 MB files arrived holding nothing, so
-    # check the ROOT magic rather than trusting the exit status.
-    if not dst.exists():
-        return False, "dccp reported success but wrote no file"
-    with open(dst, "rb") as handle:
-        magic = handle.read(4)
-    if magic != b"root":
-        # Leave nothing behind: over a long run, a bad file kept per failure
-        # would quietly eat the scratch budget.
-        dst.unlink(missing_ok=True)
-        return False, "copied file is not ROOT (unstaged? it reads as zeros)"
-    return True, ""
+    Two namespaces name the same file. The mount on a gpvm is
+    `/pnfs/minos/...`; dCache's own namespace, which the URL forms use, is
+    `/pnfs/fnal.gov/usr/minos/...`. A path already in URL form is passed
+    through, so a list file may hold either.
+
+    Streaming rather than copying is deliberate. The obvious alternative --
+    reading `/pnfs/...` directly -- is explicitly against Fermilab guidance:
+    those NFS mounts are a convenience for metadata, and heavy read traffic
+    on them stalls the interactive node for everyone. XRootD is the protocol
+    meant for this.
+    """
+    if "://" in pnfs:
+        return pnfs
+    parts = Path(pnfs).parts
+    if len(parts) < 3 or parts[1] != "pnfs":
+        return pnfs  # an ordinary local file; uproot opens it directly
+    experiment, rest = parts[2], "/".join(parts[3:])
+    return f"root://{door}/pnfs/fnal.gov/usr/{experiment}/{rest}"
 
 
 # --------------------------------------------------------------------------
@@ -239,10 +240,6 @@ def read_inputs(path: Path, pattern: str) -> tuple[list[str], Path]:
     return lines, root
 
 
-def scratch_bytes(directory: Path) -> int:
-    return sum(f.stat().st_size for f in directory.rglob("*") if f.is_file())
-
-
 def run(args) -> int:
     sources, root = read_inputs(args.files, args.pattern)
     if not sources:
@@ -252,18 +249,13 @@ def run(args) -> int:
         return 2
 
     out_dir = args.output.resolve()
-    # Staging is transient and budget-capped; the output is the deliverable and
-    # grows without limit. Keeping them apart is what lets the budget mean
-    # something. The ledger lives with the output, so wiping the staging area
-    # costs nothing but the files currently in flight.
-    staged_dir = (args.work or out_dir / ".staging").resolve()
     ledger = Ledger(out_dir / ".ledger.json")
 
     wanted = manifest.load(args.manifest)
     print(f"{len(sources)} file(s); {len(wanted)} branches enabled; format {args.format}")
     print(f"output  {out_dir}")
-    print(f"staging {staged_dir}  (prestage-ahead {args.prestage_ahead}, "
-          f"budget {args.scratch_budget} GB)")
+    print(f"reading over XRootD from {args.door}, prestage-ahead "
+          f"{args.prestage_ahead}")
 
     if args.dry_run:
         print("\nDry run. Would stage and convert:")
@@ -286,8 +278,14 @@ def run(args) -> int:
             "    on a gpvm it may need a UPS setup first; check with: which dccp"
         )
 
+    # XRootD's defaults are tuned for a healthy link; a dCache door under load
+    # can exceed them and drop a read mid-file. Fermilab's own guidance is to
+    # raise these. Only set what the caller has not.
+    for name, value in (("XRD_STREAMTIMEOUT", "300"), ("XRD_REQUESTTIMEOUT", "3600"),
+                        ("XRD_CONNECTIONRETRY", "32"), ("XRD_REDIRECTLIMIT", "255")):
+        os.environ.setdefault(name, value)
+
     out_dir.mkdir(parents=True, exist_ok=True)
-    staged_dir.mkdir(parents=True, exist_ok=True)
     if args.retry_failed:
         stuck = ledger.in_state("failed")
         for src in stuck:
@@ -298,7 +296,6 @@ def run(args) -> int:
         ledger.add(src)
     ledger.save()
 
-    budget = args.scratch_budget * 1024 ** 3
     convert_args = SimpleNamespace(
         format=args.format, manifest=args.manifest, max_events=args.max_events
     )
@@ -338,45 +335,31 @@ def run(args) -> int:
                                   f"{args.stage_timeout}h")
                     worked = True
 
-            # 3. fetch, if there is room. The budget gates fetching only:
-            #    requests keep going out regardless.
-            online = ledger.in_state("online")
-            used = scratch_bytes(staged_dir) if online else 0
-            staged_now = len(ledger.in_state("fetched"))
-            # Under budget, or nothing staged at all: a budget smaller than a
-            # single file must still make progress rather than deadlock.
-            if online and (used < budget or staged_now == 0):
-                src = online[0]
+            # 3. convert, straight from dCache over XRootD. There is no
+            #    local copy: the file is already on dCache disk by now, and
+            #    streaming it is both faster to start and the only sanctioned
+            #    way to read it from an interactive node.
+            for src in ledger.in_state("online")[:1]:
                 rel = Path(src).relative_to(root)
-                local = staged_dir / rel
-                progress.note = f"fetching {rel.name}"
-                progress.draw(ledger)
-                ok, err = fetch(src, local, args.dccp)
-                if ok:
-                    ledger.set(src, "fetched", bytes=local.stat().st_size)
-                else:
-                    ledger.set(src, "failed", error=err)
-                    progress.line(f"  FAILED fetch  {rel}: {err}")
-                worked = True
+                url = xrootd_url(src, args.door)
+                dst = (out_dir / rel).with_suffix(export.formats_suffix(args.format))
+                dst.parent.mkdir(parents=True, exist_ok=True)
 
-            # 4. convert
-            for src in ledger.in_state("fetched")[:1]:
-                rel = Path(src).relative_to(root)
-                local = staged_dir / rel
-                progress.note = f"converting {rel.name}"
-                progress.draw(ledger)
                 if not args.no_check:
                     import check_exclusions
 
-                    broken = check_exclusions.check_file(local, check_events=args.check_events)
+                    progress.note = f"checking {rel.name}"
+                    progress.draw(ledger)
+                    broken = check_exclusions.check_file(url, check_events=args.check_events)
                     if broken:
                         ledger.set(src, "failed", error=f"exclusion checks: {broken[0]}")
                         progress.line(f"  REFUSED {rel}: {broken[0]}")
-                        local.unlink(missing_ok=True)
                         worked = True
                         break
-                dst = export.output_for(local, staged_dir, out_dir, args.format)
-                result = export.convert(local, dst, convert_args)
+
+                progress.note = f"converting {rel.name}"
+                progress.draw(ledger)
+                result = export.convert(url, dst, convert_args)
                 if result["ok"]:
                     progress.bytes_out += dst.stat().st_size
                     ledger.set(src, "done", events=result.get("events"),
@@ -387,7 +370,6 @@ def run(args) -> int:
                 else:
                     ledger.set(src, "failed", error=result["error"])
                     progress.line(f"  FAILED convert {rel}: {result['error']}")
-                local.unlink(missing_ok=True)  # only ever inside our own scratch
                 worked = True
 
             since_save += 1
@@ -429,20 +411,14 @@ def parse_args(argv=None):
     p.add_argument("output", type=Path,
                    help="where the converted files go, e.g. "
                         "/exp/minos/data/users/$USER/archive")
-    p.add_argument("--work", type=Path, default=None, metavar="DIR",
-                   help="staging area for files pulled off tape "
-                        "(default: <output>/.staging). Point it at local scratch "
-                        "if the output area is slow or tight")
     p.add_argument("-f", "--format", choices=("root", "hdf5"), default="root",
                    help="output format (default %(default)s)")
     p.add_argument("--manifest", type=Path, default=manifest.DEFAULT_MANIFEST)
     p.add_argument("--prestage-ahead", type=int, default=500, metavar="N",
                    help="prestage requests kept in flight (default %(default)s). "
                         "The tape-efficiency knob: costs no local disk")
-    p.add_argument("--scratch-budget", type=int, default=300, metavar="GB",
-                   help="cap on the staging area (default %(default)s). "
-                        "Gates fetching only, never prestaging. Does not limit "
-                        "the output, which grows freely")
+    p.add_argument("--door", default="fndca1.fnal.gov:1094", metavar="HOST:PORT",
+                   help="dCache XRootD door to stream through (default %(default)s)")
     p.add_argument("--poll-batch", type=int, default=100, metavar="N",
                    help="requests checked for arrival per pass (default %(default)s)")
     p.add_argument("--poll-interval", type=float, default=30.0, metavar="S",

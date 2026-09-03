@@ -12,11 +12,14 @@ PY
 
 [ -d .venv ] || python3 -m venv .venv
 .venv/bin/pip install --quiet --upgrade pip
-.venv/bin/pip install --quiet uproot awkward numpy h5py
+.venv/bin/pip install --quiet uproot awkward numpy h5py fsspec-xrootd
 
 .venv/bin/python - <<'PY'
-import sys, uproot, awkward, numpy, h5py
+import sys, uproot, awkward, numpy, h5py, fsspec
 print(f"ready: python {sys.version.split()[0]}, uproot {uproot.__version__}, "
       f"awkward {awkward.__version__}, numpy {numpy.__version__}, h5py {h5py.__version__}")
+if "root" not in fsspec.available_protocols():
+    sys.exit("fsspec cannot handle root:// -- dCache streaming will not work")
+print("xrootd streaming: available")
 PY
 echo "activate with:  source .venv/bin/activate"
